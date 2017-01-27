@@ -1,0 +1,90 @@
+<div class="row">
+    <div class="col-md-3">
+        <div class="panel panel-default">
+            <div class="panel-heading"><strong>Drill-down</strong></div>
+            <ul class="list-group">
+                <li *ngFor="let t of terms; let i = index" class="list-group-item">
+                    <input #facetbox type="checkbox" checked="checked"
+                           (change)="facetSearch(facetbox.checked, facetbox.id)"
+                           id="{{facets[i].term}}" [(ngModel)]="facets[i].checked" />
+                  {{ t.term }} <span class="badge">{{ t.count }}</span>
+                </li>
+            </ul>
+
+          <div *ngFor="let t of drillDownTerms; let i = index">
+          <div class="panel-heading"><strong>{{t.name}}</strong></div>
+            <ul *ngIf="t.type == 'numeric'" class="list-group">
+              <li  *ngFor="let f of t.facets; let j = index" class="list-group-item">
+                <input  #ddfacetbox type="checkbox" checked="checked" (change)="ddfacetSearch(ddfacetbox.checked, ddfacetbox.id, t.field, f.min, f.max)" id="{{drillDownFacets[i][j].name}}" [(ngModel)]="drillDownFacets[i][j].checked" /> {{ f.name }} <span class="badge">{{ f.count }}</span>
+              </li>
+            </ul>
+            <ul *ngIf="t.type == 'term'" class="list-group">
+              <li  *ngFor="let f of t.facets; let j = index" class="list-group-item">
+                <input  #ddfacetbox type="checkbox" checked="checked" (change)="ddfacetSearch(ddfacetbox.checked, ddfacetbox.id, t.field)" id="{{drillDownFacets[i][j].term}}" [(ngModel)]="drillDownFacets[i][j].checked" /> {{ f.term }} <span class="badge">{{ f.count }}</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+    </div>
+
+    <my-spinner [isRunning]="isRequesting"></my-spinner>
+    <div  *ngIf="!isRequesting" class="col-md-9">
+        <div class="row">
+            <div *ngIf="hits.length > 0" class="col-md-12">
+                <div class="alert alert-info" role="alert"><strong>Results for </strong> "{{ activeFacet.term }}" <span class="pull-right glyphicon glyphicon-search" aria-hidden="true"></span></div>
+            </div>
+            <div *ngIf="hits.length < 1" class="col-md-12">
+                <div class="alert alert-warning" role="alert"><strong>Oh no!</strong> No results found...</div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <table class="table"
+                    infinite-scroll
+                    [infiniteScrollDistance]="0"
+                    [infiniteScrollThrottle]="100"
+                    (scrolled)="onScrollDown()">
+                    <tr>
+                        <th></th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    <tr *ngFor="let c of hits; let i = index">
+                        <td>{{i + 1}}</td>
+                        <td>{{c.type}}</td>
+                        <td class="wrap-long" [innerHtml]="c.fragments.join()"></td>
+                        <td>
+                            <span class="glyphicon glyphicon-console"
+                                aria-hidden="true"
+                                [popover]="myPopover"
+                                popoverPlacement="left"
+                                [popoverOnHover]="true"
+                                [popoverCloseOnMouseOutside]="false"
+                                [popoverDismissTimeout]="0">
+                            </span>
+                            <popover-content #myPopover
+                                title="Raw FTS Data"
+                                placement="left"
+                                [animation]="true">
+                                <pre>{{ getJsonData(c) }}</pre>
+                            </popover-content>
+                        </td>
+                        <td>
+                            <a *ngIf="c.assignedId" [routerLink]='["/developer", c.assignedId]'>
+                                <span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span>
+                            </a>
+                            <a *ngIf="c.id && !c.assignedId" [routerLink]='["/developer", c.id]'>
+                                <span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span>
+                            </a>
+                        </td>
+                    </tr>
+                  <my-spinner [isRunning]="isRequestingForInfScroll"></my-spinner>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+

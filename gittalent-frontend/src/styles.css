@@ -1,0 +1,36 @@
+/* You can add global styles to this file, and also import other style files */
+
+.tile {  
+    position: absolute;
+    top: 15px;
+    bottom: 0;
+    left: 15px;
+    right: 0;
+    padding: 5px;
+    background-color: grey;      
+}
+
+.tile.healthy {
+    color: #fff;
+    background-color: green;
+}
+.tile.unhealthy {
+    color: #fff;
+    background-color: red;
+}
+.tile.warmup {
+    color: #fff;
+    background-color: darkgoldenrod;
+}
+.tile.failed_over {
+    color: #fff;
+    background-color: purple;
+}
+.tile.server_down {
+    color: #fff;
+    background-color: red;
+}
+
+.dummy {
+    margin-top: 100%;
+}

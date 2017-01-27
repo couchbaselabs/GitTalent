@@ -1,0 +1,179 @@
+{
+    "type": "fulltext-index",
+    "name": "all",
+    "sourceType": "couchbase",
+    "sourceName": "default",
+    "params": {
+      "mapping": {
+        "byte_array_converter": "json",
+        "default_analyzer": "standard",
+        "default_datetime_parser": "dateTimeOptional",
+        "default_field": "_all",
+        "default_mapping": {
+          "display_order": "0",
+          "dynamic": true,
+          "enabled": true,
+          "properties": {
+            "assignedId": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "3",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "assignedId",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "closedAt": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "1",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "closedAt",
+                  "store": true,
+                  "type": "number"
+                }
+              ]
+            },
+            "developerInfo": {
+              "display_order": "0",
+              "dynamic": false,
+              "enabled": true,
+              "properties": {
+                "email": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "1",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "email",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                },
+                "firstName": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "2",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "firstName",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                },
+                "lastName": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "0",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "lastName",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                }
+              }
+            },
+            "id": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "4",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "id",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "status": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "2",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "status",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "title": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "0",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "title",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "type": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "5",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "type",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "default_type": "_default",
+        "index_dynamic": true,
+        "store_dynamic": false,
+        "type_field": "type"
+      },
+      "store": {
+        "kvStoreName": "forestdb"
+      }
+    }
+}

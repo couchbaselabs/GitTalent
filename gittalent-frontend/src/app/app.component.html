@@ -1,0 +1,32 @@
+<nav class="navbar navbar-default navbar-fixed-top">
+    <div class="container">
+        <div class="navbar-header">
+            <img src="assets/icons/gitTalentWhite.png" width="24" class="pull-left" />
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" [routerLink]='["/"]'>gitTalent</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                  <form class="navbar-form form-group has-feedback">
+                    <input type="text" class="form-control search" placeholder="Search..." [(ngModel)]="query" (keyup.enter)="search()" name="search" />
+                    <i style="padding-right: 3em" class="glyphicon glyphicon-search form-control-feedback"></i>
+                  </form>
+                </li>
+                <li routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"><a [routerLink]='["/"]'><span class="glyphicon glyphicon-user" aria-hidden="true"></span> Developers</a></li>
+                <li routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"><a [routerLink]='["/organizations"]'><span class="glyphicon glyphicon-home" aria-hidden="true"></span> Organizations</a></li>
+                <li routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"><a [routerLink]='["/analytics"]'><span class="glyphicon glyphicon-stats" aria-hidden="true"></span> Analytics</a></li>
+                <li routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"><a [routerLink]='["/clusterstatus"]'><span class="glyphicon glyphicon-dashboard" aria-hidden="true"></span> Status</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+  <router-outlet></router-outlet>
+</div>

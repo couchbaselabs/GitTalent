@@ -1,0 +1,131 @@
+body {
+    min-height: 800px;
+    padding-top: 70px;
+}
+
+.wrap-long {
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+.popover { width: 100%; max-width: 75%; }
+
+.info-title {
+    text-transform: capitalize;
+}
+
+.search {
+    border: none;
+}
+.navbar-default .navbar-nav li>a,
+.navbar-default .navbar-nav>.active>a {
+    color: #fff !important;
+}
+
+.panel-default>.panel-heading {
+    color: #333;
+    background-color: #dfeaef;
+    border-color: #c3d1d8;
+}
+
+.panel-default>.panel-footer {
+    color: #333;
+    background-color: #dfeaef;
+    border-color: #c3d1d8;
+}
+
+.navbar-default {
+    background-color: #cc2a2e;
+    border-color: none;
+
+}
+
+.navbar-default .navbar-brand {
+    color: #fff;
+    font-size: 3em;
+}
+
+.navbar-brand {
+    padding:10px 20px;
+  content: url('http://www.robashcom.com/gittalent_logo.svg');
+  position:relative;
+}
+
+.panel {
+    background-color: none;
+    border: 0px solid transparent;
+    border-radius: none;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+}
+
+.panel-heading {
+    padding: 10px 15px;
+    border-bottom: 1px solid transparent;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 2px;
+}
+
+.table>thead>tr>th {
+    border-bottom: none;
+    background-color: none;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd) {
+    background-color: #f7f7f7;
+}
+
+.panel-default {
+    border-color: transparent;
+}
+
+.panel-body {
+    padding: 15px;
+    background-color: #f7f7f7;
+}
+
+.navbar-default .navbar-nav>.active>a, .navbar-default .navbar-nav>.active>a:focus, .navbar-default .navbar-nav>.active>a:hover {
+    background-color: #555;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+
+  position: relative;
+  margin: 100px auto;
+}
+
+.double-bounce1, .double-bounce2 {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #333;
+  opacity: 0.6;
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  -webkit-animation: sk-bounce 2.0s infinite ease-in-out;
+  animation: sk-bounce 2.0s infinite ease-in-out;
+}
+
+.double-bounce2 {
+  -webkit-animation-delay: -1.0s;
+  animation-delay: -1.0s;
+}
+
+@-webkit-keyframes sk-bounce {
+  0%, 100% { -webkit-transform: scale(0.0) }
+  50% { -webkit-transform: scale(1.0) }
+}
+
+@keyframes sk-bounce {
+  0%, 100% {
+    transform: scale(0.0);
+    -webkit-transform: scale(0.0);
+  } 50% {
+      transform: scale(1.0);
+      -webkit-transform: scale(1.0);
+    }
+}

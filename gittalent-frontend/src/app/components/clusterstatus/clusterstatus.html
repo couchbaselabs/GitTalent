@@ -1,0 +1,13 @@
+<my-spinner [isRunning]="isRequesting"></my-spinner>
+<div *ngIf="!isRequesting" class="row">
+    <h2>Cluster Status <button class="btn btn-info" (click)="refreshStatus()"><span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh"></span></button></h2>
+    <div class="row">
+        <div class="col-sm-2" *ngFor="let n of nodes; let i = index">
+            <div class="dummy"></div>
+            <div class="tile {{ n.status }}">
+                <h4 class="title">{{ cleanHostName(n.hostname) }}</h4>
+                <p>Services: {{ n.services }}</p>
+            </div>
+        </div>
+    </div>
+</div>

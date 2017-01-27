@@ -1,0 +1,99 @@
+<div class="row">
+    <div class="col-md-12">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Language Trend By Commits: 2016</strong>
+        </div>
+        <div class="panel-body">
+          <div class="col-md-6">
+            <my-spinner [isRunning]="isRequestingMonthlyLangTrend"></my-spinner>
+            <div *ngIf="!isRequestingMonthlyLangTrend" style="display: block;">
+              <canvas baseChart height="230"
+                      [datasets]="lineChartData"
+                      [labels]="lineChartLabels"
+                      [options]="lineChartOptions"
+                      [legend]="lineChartLegend"
+                      [chartType]="lineChartType"
+                      (chartHover)="chartHovered($event)"
+                      (chartClick)="chartClicked($event)"></canvas>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div style="display: block;">
+        <span><pre>
+     WITH repos AS
+     (
+       SELECT VALUE r
+       FROM developers d, d.repositories r
+     ),
+     monthlyCommits AS
+     (
+       SELECT r.mainLanguage AS language,
+         substr(e.created_at, 1, 7)  AS month,
+         SUM(ARRAY_COUNT(e.payload.commits)) AS commits
+       FROM events e, repos r
+       WHERE e.repo.name /*+ bcast */= r.fullName
+        AND r.mainLanguage IN ["Go","Java","Python","Ruby"]
+       GROUP BY language, month
+     )
+     SELECT m.language AS language,
+        (
+           SELECT m.month AS month, SUM(m.commits) commits
+           FROM m
+           GROUP BY m.month
+           ORDER BY m.month
+        ) trend
+     FROM monthlyCommits m
+     GROUP BY m.language;
+</pre></span>
+              </div></div>
+        </div>
+      </div>
+
+
+<!--       <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Language Trend By Commits</strong>
+        </div>
+        <div  class="panel-body">
+          <div class="col-md-6">
+            <my-spinner [isRunning]="isRequestingPopLang"></my-spinner>
+            <div *ngIf="!isRequestingPopLang" style="display: block;">
+          <canvas baseChart
+                  [datasets]="barChartData"
+                  [labels]="barChartLabels"
+                  [options]="barChartOptions"
+                  [legend]="barChartLegend"
+                  [chartType]="barChartType"
+                  (chartHover)="chartHovered($event)"
+                  (chartClick)="chartClicked($event)"></canvas>
+              </div>
+          </div>
+          <div class="col-md-6">
+            <div style="display: block;">
+          <span><pre>
+WITH repos AS
+(
+  SELECT DISTINCT VALUE r
+  FROM developers d, d.repositories r
+)
+SELECT r.mainLanguage language,
+  SUM(ARRAY_COUNT(e.payload.commits)) commits
+FROM events e, repos r
+WHERE e.repo.name = r.fullName
+GROUP BY r.mainLanguage
+ORDER BY commits DESC LIMIT 5;
+</pre></span>
+            </div>
+          </div>
+        </div>
+      </div> -->
+
+
+
+
+
+
+    </div>
+</div>
