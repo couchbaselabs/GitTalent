@@ -19,6 +19,6 @@ import com.gittalent.model.Developer;
 import org.springframework.data.couchbase.repository.CouchbasePagingAndSortingRepository;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
-@RepositoryRestResource(collectionResourceRel = "organization", path = "organization")
+@RepositoryRestResource(collectionResourceRel = "developer", path = "developer")
 public interface DeveloperRepository extends CouchbasePagingAndSortingRepository<Developer, String> {
 }

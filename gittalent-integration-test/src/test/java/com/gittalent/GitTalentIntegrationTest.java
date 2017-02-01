@@ -19,6 +19,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.HttpWaitStrategy;
 
 import java.io.File;
+import java.time.Duration;
 
 /**
  * Created by ldoguin on 12/26/16.
@@ -34,7 +35,7 @@ public class GitTalentIntegrationTest {
         if (System.getenv("revId") != null) {
             revId = System.getenv("revId");
         } else {
-            revId = "late";
+            revId = "latest";
         }
     }
 
@@ -52,18 +53,19 @@ public class GitTalentIntegrationTest {
 
     public static GenericContainer gittalentBackend = new LinkedContainer("gittalent/backend:"+revId)
             .withLinkToContainer(couchbaseContainer, "couchbase")
-            .withCommand("-Dspring.couchbase.bootstrap-hosts="+ couchbaseContainer.getContainerIpAddress(), "-Dgittalent.cors.allowedOrigin=http://gittalentfrontend")
-            .withExposedPorts(8080).waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(200));
+            .withCommand("--spring.couchbase.bootstrap-hosts=couchbase", "--gittalent.cors.allowedOrigin=http://gittalentfrontend")
+            .withExposedPorts(8080).waitingFor(new HttpWaitStrategy().forPath("/browser/index.html#/").forStatusCode(200).withStartupTimeout(Duration.ofSeconds(60)));
 
     static {
         gittalentBackend.start();
     }
 
-    public static GenericContainer gittalentFrontend = new LinkedContainer("gittalent/frontend:"+revId).withLinkToContainer(gittalentBackend, "gittalentBackend").withExposedPorts(80);
+    public static GenericContainer gittalentFrontend = new LinkedContainer("gittalent/frontend:" + revId).withLinkToContainer(gittalentBackend, "gittalentBackend").withExposedPorts(80);
 
     static {
         gittalentFrontend.start();
     }
+
     @ClassRule
     public static BrowserWebDriverContainer chrome = new BrowserWebDriverContainer()
             .withLinkToContainer(gittalentFrontend, "gittalentfrontend")
