@@ -1,0 +1,2531 @@
+= GitTalent - A Couchbase Sample Application
+Doc Writer <laurent.doguin@couchbase.com>
+v1.0, 2017-01-01
+:toc:
+:imagesdir: book
+:homepage: http://asciidoctor.org
+
+[[couchbase-connect-keynote-2016---gittalent]]
+Couchbase Connect Keynote 2016 - GitTalent
+------------------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+If you were at Couchbase Connect or followed the keynote online, you
+might have seen an application called GitTalent during Perry's demo.
+This application was developped specificaly for that demo and we will
+dissect it during this blog series. The first part of the serie is about
+the architechture of GitTalent,
+
+[[gittalent]]
+GitTalent
+~~~~~~~~~
+
+If you did not however follow the keynote (which is fine, it's your
+right, replay is here), GitTalent is an application that let's you find
+the best developer talent on Github. So we need to store some data from
+Github into Couchbase and present it in a meaningful, searchable way.
+
+[[architecture]]
+Architecture
+~~~~~~~~~~~~
+
+One of the goal of this demo was to make sure developers could identify
+to it. We also wanted to do something fun and as painless as possible.
+So this made us go into a safe and well known choice: Spring Boot and
+Angular. And because we are crazy like that we chose Angular 2 even if
+the official release wan't out yet when we started :D But everything
+went mostly fine.
+
+image:architecture.png[]
+
+Because we are using Spring and Couchbase, we can use Spring Data
+Couchbase. It gives us a repository abstraction, great to store
+traditional entities object. On top of Spring Data modules comes Spring
+Data Rest wich will expose those repositories automatically as REST
+APIs. Let's add Spring HATEOAS to make sure our APIs follow the
+http://en.wikipedia.org/wiki/HATEOAS[HATEOAS] principle. And to make
+sure we can test and see what's going on easily we can throw in the
+Spring Data REST - HAL Browser. With this we get everything we need to
+start creating entities that represent our Github Data. We will use
+Spring MVC for customs enpoints.
+
+That data can be entered manually by a user or automatically from Github
+using it's REST API. Koshuke did a great client, easy to use and based
+on OKHttp. So we'll use this to import the data.
+
+Of course this data will be stored in Couchbase. We will leverage the
+many possiblities offered by Couchbase Server to read or write
+documents. A recap here:
+
+* CRUD operations with Key/Value
+* Partial Document update with the SubDocument API
+* SQL queries for JSON documents with N1QL
+* Fulltext search with Bleve's integration Couchbase FTS
+* Analytics queries like strong aggregation thanks to CBAS
+
+Talking about analytics, another dataset will be used to provide a great
+amount of data with githubarchive. We'll go a little more in details on
+this import on a later post. As we are using SPring Boot autoconfig,
+we'll use the default tomcat server for our backend.
+
+Of course everything here is Backend APIs, users still cannot see
+anything. The web framework we chose is Angular2 served by an nginx
+server. AS it's not the same different than the server we will provide
+the necesssary CORS configuration to allow the application to work
+safely. We'll use angular-cli as build tool and ng2-charts for our
+wonderful graphs.
+
+So far we have two different applications for Frontend and Backend. Part
+of our requirement if you have seen the demo is to make sure we can run
+continuous integration and deployment. Being a rather classic Java
+developer, I have chosen to use Jenkins and start with a very manual
+process with everything going through SSH.
+
+Right now this should give you a rough overview of what we'll be achieve
+and how. Next posts will details implementation.
+
+[[gittalent-data-model]]
+GitTalent Data Model
+--------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+In part 1 of this series about GIttalent we gave a brief overview of the
+architecture and the application itself. This new post is dedicated to
+explaining the Data Model and our usage of the Spring Framework.
+
+[[autoconfiguration]]
+AutoConfiguration
+~~~~~~~~~~~~~~~~~
+
+One of the great benefit of using Spring Boot is autoconfiguration. They
+provide a wide range of modules and integrate with many existing
+software like databases. And Couchbase is one the DBs they support.
+There is not much you need to do when starting a new Spring project. It
+fits in three simple words start ... spring ... io. So go on
+start.spring.io and select the modules you want to use in your project
+and click on generate. What you get as a result is a project you can
+directly import in your favorite IDE. Then to configure an access to
+Couchbase you have to add one property to you `applicaiton.properties`
+file.
+
+....
+     spring.couchbase.bootstrap-hosts=localhost
+....
+
+image::springInit_HD.gif[]
+
+Now we are able to inject all the Couchbase Bean automatically provided
+by Couchbase. Notice that contrary to many other store, it does not
+require a dependency to the Spring Data module but just having Spring
+boot and the Couchbase SDK on your classpath.
+
+....
+package com.couchbase.demo;
+
+import com.couchbase.client.java.Bucket;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+
+@SpringBootApplication
+public class CrmApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(CrmApplication.class, args);
+    }
+
+    @Bean
+    CommandLineRunner commandLineRunner(final Bucket bucket) throws Exception {
+        return args -> {
+            System.out.println(bucket.get("docKey"));
+        };
+    }
+
+}
+....
+
+This is a very minimal example of what you can build with Spring Boot
+and Couchbase. We are now entering the GitTalent use case. We need to
+store Developers profiles with their metadatas like the repositories
+they have created, we need to store the Organizations they belong to and
+the Github Issues they might have open.
+
+[[spring-data]]
+Spring Data
+~~~~~~~~~~~
+
+Enter Spring Data Couchbase, an Object Document Mapper, You define
+entities through POJO and store them through a repository abstraction.
+
+[[defining-an-entity]]
+Defining an Entity
+^^^^^^^^^^^^^^^^^^
+
+Each developer atribute will be represented by a field of your POJO. To
+be taken into account it requires the @Document class annotation. Here's
+a simplified example:
+
+....
+@Document
+public class Developer {
+
+    @Id
+    private String key;
+
+    private String id;
+
+    private String type = "developer";
+
+    private List<String> organizations;
+
+    private Long createdAt;
+
+    public Developer(){
+    }
+
+    // getters and setters
+}
+....
+
+Notice also the usage of the @Id anntation. It's here to specify that
+the String field key will be used as key of the document(because as you
+may know Couchbase is first and foremost a Key/Value store). This class
+as it is currently can be stored by Spring Data using either the
+repositories or the low level template like so:
+
+....
+    @Bean
+    CommandLineRunner commandLineRunner(final CouchbaseTemplate couchbaseTemplate) throws Exception {
+        return args -> {
+              Developer developer = new Developer();
+            developer.setId("id");
+            developer.setKey("id");
+              couchbaseTemplate.save(developer);
+              developer = couchbaseTemplate.findById("id", Developer.class);
+        };
+    }
+....
+
+This work but having to specify the class for deserialization saddens
+me, and it should make you sad too. Because there is a better way to do
+this, a way that offer other interesting features.
+
+[[repositories]]
+Repositories
+^^^^^^^^^^^^
+
+Enter repositories, the coolest abstraction for storing these entities:
+
+....
+package com.gittalent.repositories;
+
+import com.gittalent.model.Developer;
+import org.springframework.data.couchbase.repository.CouchbasePagingAndSortingRepository;
+
+public interface DeveloperRepository extends CouchbasePagingAndSortingRepository<Developer, String> {
+}
+....
+
+Yes all we need is an interface that extends another interface called
+CouchbasePagingAndSortingRepository. Developer because this repository
+is dedicated to storing Developer entities and String because it's the
+type of the field used as id or key.
+
+This slightly changes our previous example to:
+
+....
+    @Bean
+    CommandLineRunner commandLineRunner(final DeveloperRepository developerRepository) throws Exception {
+        return args -> {
+            Developer developer = new Developer();
+            developer.setId("id");
+            developer.setKey("id");
+            developerRepository.save(developer);
+            developer = developerRepository.findOne("id");
+        };
+    }
+....
+
+All of this might not seem super powerful right now but I assure you it
+is. Lots of good things happen at runtime. You don't need to write any
+implementation code. All the methods from the interfaces are handled
+automatically by the Spring framework. They use
+https://docs.spring.io/spring-data/couchbase/docs/current/reference/html/#couchbase.repository[query
+derivation] to do so.
+
+Also, because we have selected Spring Data Rest and Spring Data HATEOAS,
+every repository are exposed through an automaticaly generated API. And
+it's fairly easy to test because it shows up with a web console by
+default available at http://localhost:8080/
+
+image::halbrowser_HD.gif[]
+
+[[importing-data]]
+Importing Data
+~~~~~~~~~~~~~~
+
+All of this isn't super interesting because right now data has to be
+created manually. As explained in the previous post we are going to use
+this cool github library to import data automatically. The first thing
+to do is initiate a connection to the Github API. By the default the
+credentials will be fetched from a `.github` file in the user home
+directory. You can either use your login and password or an oauth token
+as explained http://github-api.kohsuke.org/[here].
+
+....
+    public GitHub initGithub() {
+        String tmpDirPath = System.getProperty("java.io.tmpdir");
+        File cacheDirectoryParent = new File(tmpDirPath);
+        File cacheDirectory = new File(cacheDirectoryParent, "okhttpCache");
+        if (!cacheDirectory.exists()) {
+            cacheDirectory.mkdir();
+        }
+        Cache cache = new Cache(cacheDirectory, 100 * 1024 * 1024);
+        try {
+            return GitHubBuilder.fromCredentials()
+                    .withRateLimitHandler(RateLimitHandler.WAIT)
+                    .withAbuseLimitHandler(AbuseLimitHandler.WAIT)
+                    .withConnector(new OkHttpConnector(new OkUrlFactory(new OkHttpClient().setCache(cache))))
+                    .build();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+....
+
+The next step is to start querying users and importing them. Here's an
+example to import all the github developers that have more than 10000
+followers.
+
+....
+    public void importDeveloperByFollowers() {
+        PagedSearchIterable<GHUser> followers = github.searchUsers().followers(">10000").list();
+        followers.forEach(
+                ghUser -> {
+                    String developerId = String.valueOf(ghUser.getId());
+                    Developer developer = new Developer();
+                    Date createdAt = ghUser.getCreatedAt();
+                    developer.setCreatedAt(createdAt.getTime());
+                    developer.setId(developerId);
+                    developerRepository.save(developer);
+                });
+    }
+
+....
+
+The Github API gives us access to a lot more data. You can find the
+complete model on our github repository here. Everything is ready to
+start storing Developer, Github issues and organizations. Next post will
+be about how to test this and introduce some interesting validation use
+cases.
+
+[[testing-spring-data-couchabse-with-testcontainers]]
+Testing Spring Data Couchabse with TestContainers
+-------------------------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+In a previous series of blog posts I explained how to use TestContainers
+for your Java Junit tests. Some of the issues we did not address were
+about how to test N1QL, create your own buckets, index etc... This post
+will be about building Spring Data Couchbase test cases and cover theses
+questions we left out.
+
+[[hardwire-unconfigureable-port]]
+Hardwire Unconfigureable Port
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One of the limitations we currently have on Couchbase Server is that you
+cannot change some of the default port. This is a problem with Docker as
+it's changing ports only notified otherwise. This can be great because
+it means you can have several Couchbase instances running on the same
+machine. But unfortunately won't work so some ports will have to be
+fixed. This can be declared fairly easily with TestContainers using the
+addFixedExposedPort method.
+
+....
+@Override
+protected void configure() {
+    addExposedPorts(8091, 11207, 11210, 11211, 18091, 18092, 18093);
+    addFixedExposedPort(8092, 8092);
+    addFixedExposedPort(8093, 8093);
+    addFixedExposedPort(8094, 8094);
+    addFixedExposedPort(8095, 8095);
+    setWaitStrategy(new HttpWaitStrategy().forPath("/ui/index.html#/"));
+}
+....
+
+With that out of the way, our Java SDK will be able to connect to N1QL.
+
+[[abstract-spring-data-couchbase-docker-test-case]]
+Abstract Spring Data Couchbase Docker Test Case
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The goal here is to create an abstract test case that will be used by
+any class that needs a Couchbase instance and Spring Data Couchbase
+configured. It starts as in the previous posts by instantiating a
+CouchbaseContainer field. Since we are testing Spring Data we configure
+support for Index, Query and let's throw in FTS for later.
+
+To make sure this class will run tests for your application, add the
+@RunWith(SpringRunner.class) annotation. And to make sure your
+application configuration is tested as well as our custom configuration,
+add @SpringBootTest(classes = \{GittalentBackendApplication.class,
+AbstractSPDataTestConfig.CouchbaseTestConfig.class}).
+
+Now talking about custom configuration, what do we need? We want to
+override the default Couchbase configuration of the app. To do so we
+need to implement a CouchbaseConfigurer. This interface defines all the
+bean needed for Spring Data Couchbase to work properly. It provides
+instances for CouchbaseEnvironment, ClusterInfo, Cluster and Bucket.
+
+They will all come from our CouchbaseContainer setup before running the
+tests. So we need to make sure that the Container is running and ready
+before intializing all the beans. This can be achieve by adding an
+init() method annotated with @PostConstruct. This will allow us to first
+make sure the container is running, then setup additional stuff. In the
+following example we setup a bucket called default and setup the Index
+type to be MOI.
+
+....
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = {GittalentBackendApplication.class, AbstractSPDataTestConfig.CouchbaseTestConfig.class})
+public abstract class AbstractSPDataTestConfig {
+
+    public static final String clusterUser = "Administrator";
+    public static final String clusterPassword = "password";
+
+    @ClassRule
+    public static CouchbaseContainer couchbaseContainer = new CouchbaseContainer()
+            .withFTS(true)
+            .withIndex(true)
+            .withQuery(true)
+            .withClusterUsername(clusterUser)
+            .withClusterPassword(clusterPassword);
+
+    @Configuration
+    static class CouchbaseTestConfig implements CouchbaseConfigurer {
+
+        private CouchbaseContainer couchbaseContainer;
+
+        @PostConstruct
+        public void init() throws Exception {
+            couchbaseContainer = AbstractSPDataTestConfig.couchbaseContainer;
+            BucketSettings settings = DefaultBucketSettings.builder()
+                    .enableFlush(true).name("default").quota(100).replicas(0).type(BucketType.COUCHBASE).build();
+            settings =  couchbaseCluster().clusterManager(clusterUser, clusterPassword).insertBucket(settings);
+            couchbaseContainer.callCouchbaseRestAPI("/settings/indexes", "indexerThreads=0&logLevel=info&maxRollbackPoints=5&storageMode=memory_optimized", "Administrator", "password");
+            waitForContainer();
+        }
+
+        public void waitForContainer(){
+            CouchbaseWaitStrategy s = new CouchbaseWaitStrategy();
+            s.withBasicCredentials(clusterUser, clusterPassword);
+            s.waitUntilReady(couchbaseContainer);
+        }
+
+        @Override
+        @Bean
+        public CouchbaseEnvironment couchbaseEnvironment() {
+            return couchbaseContainer.getCouchbaseEnvironnement();
+        }
+
+        @Override
+        @Bean
+        public Cluster couchbaseCluster() throws Exception {
+            return couchbaseContainer.geCouchbaseCluster();
+        }
+
+        @Override
+        @Bean
+        public ClusterInfo couchbaseClusterInfo() throws Exception {
+            Cluster cc = couchbaseCluster();
+            ClusterManager manager = cc.clusterManager(clusterUser, clusterPassword);
+            return manager.info();
+        }
+
+        @Override
+        @Bean
+        public Bucket couchbaseClient() throws Exception {
+            return couchbaseContainer.geCouchbaseCluster().openBucket("default");
+        }
+
+    }
+}
+....
+
+Once we have this abstract test case, all we have to do next is create a
+class that extends it and start writing tests! Here we can inject
+Services from our application as well as a lower level Bucket. What you
+see in this test is first a call to an importer service that create
+documents. Then we create an Index on the default bucket and test a
+query on it.
+
+....
+public class GitTalentGHImportTests extends AbstractSPDataTestConfig {
+
+    @Autowired
+    private GithubImportService githubImportService;
+
+    @Autowired
+    private Bucket bucket;
+
+    @Test
+    public void importDevAdvocateTeam(){
+        githubImportService.importOneDeveloper("ldoguin");
+        N1qlQueryResult result = bucket.query(N1qlQuery.simple("CREATE PRIMARY INDEX ON default"));
+        N1qlQuery query = N1qlQuery.simple("SELECT * FROM default WHERE developerInfo.username = 'ldoguin'");
+        result = bucket.query(query);
+        N1qlQueryRow row = result.rows().next();
+        Assert.assertNotNull(row);
+    }
+}
+....
+
+As you can see once the Abstract test case is created, the amount of
+code is really minimal and correspond exactly to what you want to test.
+
+[[gittalent-unit-test-with-couchbase-spring-boot-and-testcontainers]]
+Gittalent Unit Test with Couchbase, Spring boot and TestContainers
+------------------------------------------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+A question that often to our ears is how to run tests with Couchbase?
+Well first there are different ways to run test. Let's say Unit and
+Integration tests. Today we are going to talk specifically about unit
+tests. Most people will tell you that testing complicated(to many people
+complicated start with just one DB, some however run a full cluster and
+additional microservices) setup in Unit tests is not necessary. Mocking
+works great and you don't necessarily have to have a database running
+during those tests.
+
+Mocking can sometimes be tedious. Lots of people in the SQL world use an
+embeded Database like HSQL to avoid it. Some NoSQL can also start
+embeded easily like Cassandra or MongoDB. It's however really difficult
+to do with Couchbase. Difficult does not mean impossible and there are
+lots of diffent options depending on the language, framework, build
+tools you are using. In our case it's Java, Spring and Maven.
+
+This trio already gives several possibilities. You could create a maven
+plugin that starts and setup Couchabse before the test phase and shuts
+it down afterwards. You could also use Maven exec to run some complex,
+platform dependant scripts to do the same things. Or you could use a
+wonderful library called
+https://github.com/testcontainers[TestContainers].
+
+[[introducing-testcontainers]]
+Introducing Testcontainers
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+I have already written about Testcontainers in previous blog posts. It
+allows you to run Docker containers or Docker Compose scripts before
+running your unit tests. What we are effectively doing here is using
+Docker as a common runtime for our test infrastructure. Docker works the
+same way on every platform so no need to maintain different scripts or
+implements different system in a maven plugin. It will work the same way
+on a developer laptop or on a CI machine. Only drawback is that your
+tests are now Docker dependant. But personaly I can live with that.
+
+[[testing-our-repository]]
+Testing our repository
+~~~~~~~~~~~~~~~~~~~~~~
+
+We left the previous blog post with a developer repository. Will it
+work? Let's find out. This is a very simple test. We create our own
+Developer, save it with the repository then retrieve it with the Bucket.
+Everything is injected automatically because yay Spring. As a reminder,
+Spring autoconfig kicks in but you need to have a running Couchbase
+instance somewhere and this is where TestContainers comes in. For more
+details about TestContainers and Spring Data Couchbase please see the
+following post.
+
+If everything is setup accordingly, your test can be really focused and
+to the point:
+
+....
+public class GittalentBackendApplicationTests extends AbstractSPDataTestConfig {
+
+    @Autowired
+        private DeveloperRepository developerRepository;
+
+    @Autowired
+    private Bucket bucket;
+
+    @Test
+    public void testRepository() throws Exception {
+        Developer developer = new Developer();
+                DeveloperInfo developerInfo = new DeveloperInfo();
+        developer.setId("alovelace");
+                developerInfo.setFirstName("Ada");
+                developerInfo.setLastName("Lovelace");
+        developerRepository.save(developer);
+        JsonDocument doc = bucket.get("alovelace");
+        Assert.assertNotNull(doc);
+    }
+
+}
+....
+
+Now we can test a basic Respository implementation. But this is fairly
+simple, there isn't much to test. Let's try something a bit more
+advanced.
+
+[[testing-hibernate-validations]]
+Testing Hibernate validations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+http://hibernate.org/validator/[Hibernate validation] allow us to
+declare constraints on entities. For instance if we want to make sure
+that the field username is never null, we have to add the @NotNull
+annotation. There are others validators you can use to limit the size of
+a field or make sure it follows a particular pattern. Have a look at the
+built-in list
+http://docs.jboss.org/hibernate/stable/validator/reference/en-US/html_single/#section-builtin-constraints[here].
+If you don't find what you need just know you can build your own
+validators.
+
+....
+    @Valid
+    DeveloperInfo developerInfo
+
+
+    @NotNull
+    private String username;
+....
+
+To male sure validation occurs, we need to define a validator Bean as
+follow:
+
+....
+    @Bean
+    public LocalValidatorFactoryBean validator() {
+        return new LocalValidatorFactoryBean();
+    }
+....
+
+With that, everything else will be wired up automatically by Spring
+Boot. No need to define a specific validation listener like we needed
+with vanilla Spring. Which means we can start testing validation. What
+we want is to expect a failure when the field username is null. Testing
+failure just require us to precise what Exception we are expecting. This
+is done by giving it as parameter of the @Test annotation:
+
+....
+    @Test(expected=ConstraintViolationException.class)
+    public void testDevValidation() {
+        Developer developer = new Developer();
+        DeveloperInfo developerInfo = new DeveloperInfo();
+        developer.setId("alovelace");
+        developerInfo.setFirstName("Ada");
+        developerInfo.setLastName("Lovelace");
+        developer.setDeveloperInfo(developerInfo);
+        developerRepository.save(developer);
+    }
+....
+
+As you can see here we are not setting the username field. This will
+fail, and the test will succeed because of the expected flag of the test
+annotation. With this you should have a good idea on how to test Spring
+Data Couchbase projects.
+
+[[building-a-frontend-for-gittalent]]
+Building a FrontEnd for Gittalent
+---------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+When we started working on the keynote demo, we took the decision of
+working with modern, recent technologies. So we devided on Angular2 for
+the frontend. Which wasn't even GA at the time. But it actually went
+great. So in this post I'll tell you a little more details on what we
+did, and more specifically how we made it work with the Backend. Kudos
+to Nic Raboy for doing most of the work and architecture on this one!
+
+[[getting-started-with-angular2]]
+Getting Started with Angular2
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Easy way to start an Angular2 app these days is to use
+https://cli.angular.io/[angular-cli]. To use it you can install it
+globally using `npm -g install angular-cli` or use this very cool
+https://hub.docker.com/r/metal3d/ng/[Docker image] that angular-cli and
+allow you to mount your angular folder. Just run
+`docker run --rm -it -v $(pwd)/angular:/project -u $(id -u):$(id -g) metal3d/ng build`.
+
+With that you can scaffold your project with `ng new my-fancy-app`,
+`cd my-fancy-app` and `ng serve`. Now you can open your angular project
+in your IDE and start browsing it at http://localhost:4200. Each
+modification you do will trigger an automatic build and refresh. You are
+now ready to work and start adding new content. I won't go into more
+details on the frontend part yet and will now concentrate on the
+interaction with the backend.
+
+[[working-with-the-backend]]
+Working with the Backend
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+There are mainly two things we need to make it work. We need to make
+sure the backend URL can change on the frontend site to adapt to
+different envrionments like test, staging, production etc.. The other
+thing is to handle security correctly. You need to make sure that your
+app can fetch resources from other website. You can do this by setting
+up a proper
+https://en.wikipedia.org/wiki/Cross-origin_resource_sharing[CORS]
+configuration.
+
+[[spring-boot-cors-congiguration]]
+Spring Boot CORS Congiguration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Spring folks have planned everything to save us the headache of
+setting headers manuely in filters. The following code is based on this
+https://spring.io/blog/2015/06/08/cors-support-in-spring-framework#filter-based-cors-support[blog
+post]. I strongly invite you to read it as it describes why CORS and how
+it's handled by the Spring framework.
+
+So basically all you need is a configuration that will setup a new
+default filter for all the request. Declare a new CorsConfiguration
+object and set the allowed origin. The allowed origin is the URL of the
+website making the query to the backend. As this URL can change
+depending on your setup (test, staging, preproduction, production
+etc..), it's better to make it configurable. This is why we have a
+`allowedOrigin` field annotated with @Value. This annotation basically
+transform this field into a property with a default value. The default
+value being localhost in our case. Don't forget to setup the bean order
+to make sure this filter comes in first for every request.
+
+....
+@Configuration
+public class RestCorsConfiguration {
+
+    @Value("${gittalent.cors.allowedOrigin:http://localhost}")
+    private String allowedOrigin;
+
+    @Bean
+    public FilterRegistrationBean corsFilter() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin(allowedOrigin);
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        source.registerCorsConfiguration("/**", config);
+        FilterRegistrationBean bean = new FilterRegistrationBean(new CorsFilter(source));
+        bean.setOrder(0);
+        return bean;
+    }
+
+}
+....
+
+Thanks to the Spring framework, you only need one configuration class to
+setup CORS support. As explained above, the origin URL can change. Which
+means the backend URL can change. So your Frontend must be configurable.
+Angular2 makes this easy.
+
+[[parameterize-the-angular-build]]
+Parameterize the Angular Build
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the lifecycle of an Angular app, there are several steps. You first
+create it, generate what you need, then you can type `ng serve`. What
+this will do is build the app, start a web server and serve the build
+result. It wll also watch all changes made to the app and provide you
+hot reload of changed code to make your developer life easier. It will
+do so and use the default environment. Angular environment allow you to
+specify different enrionments. They are all specified in the
+`angular-cli.json` file, assuming you used Angular CLI for your project.
+Under the JSON object apps.enironments, this is what I have:
+
+....
+      "environments": {
+        "source": "environments/environment.ts",
+        "dev": "environments/environment.ts",
+        "test": "environments/environment.test.ts",
+        "prod": "environments/environment.prod.ts"
+      }
+....
+
+And this is my test enrionment:
+
+....
+export const environment = {
+  production: false,
+  gittalentBackendURL:"http://gittalentbackend:8080"
+};
+....
+
+As you can see there are two parameters. One of them being the backend
+URL. So now the question is, how to use this particular envionment?
+Angular CLI as an environment option. When you build the app with
+`ng build`, you can specify the environment with the `--environment`
+flag. So if you want to build the app with the test environment you have
+to run `ng build --environment=test`. And you are all set, now the
+current build will use the right test URL. Next question is how do you
+use this property in your code?
+
+In the app we have a particular Utility class that regroup calls made to
+the backend. In this class we import the selected environment as follow:
+
+....
+import { environment } from '../environments/environment';
+
+@Injectable()
+export class Utility {
+
+    host: string = environment.gittalentBackendURL;
+....
+
+And as you can see reading from the environment is that simple. Once you
+did this the follow up question is how to deploy all this?
+
+[[deploying-an-angular2-application]]
+Deploying an Angular2 Application
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Often with Spring you will deploy the web app in the same server by
+bundling it in your application. That's relatively easy and straight
+forward. But not super portable if you want to use another backend for
+instance. So we took the decision of bundling the app into a Docker
+container. It is completely stateless afer all so it's easy to move it
+around, Perfect fit for a container.
+
+Here's how you can build the Docker image making sure you identified the
+exact version of the application:
+
+....
+export revId=$(git rev-parse HEAD)
+docker run --rm -it -v $(pwd)/angular:/project -u $(id -u):$(id -g) metal3d/ng build --environment=test
+docker build -t gittalent/frontend:$revId angular
+....
+
+Here I use the current git commit ID. Then I use a Docker image for
+Angular CLI because I was too lazy to install it (and because isolation
+for build tool is useful). You can see here that use the test
+environment. Once the Angular build is done, I create the Docker image
+with revisionId as tag and the following Dockerfile:
+
+....
+FROM nginx
+COPY dist/ /usr/share/nginx/html
+....
+
+This is a very simple Dockerfile where we just copy the result of the
+Angular build in the nginx default folder. Now if you want to run the
+container all you have to do is type
+`docker run -ti -p 80:80 gittalent/frontend:$revId`
+
+And with that the website is accessible on http://localhost/ and looking
+for http://gittalentbackend:8080 as backend. In the next post I will
+explain how to run integration test on this web app.
+
+
+
+[[dynamic-trick]]
+Dynamic Trick
+-------------
+
+During the Keynote we have seen Perry modify the application to support
+a new field asked by Ravi. You might have noticed that he only modified
+the backend. He never touched to the database or the front-end. And yet
+by just adding field to a Java file, the Angular backend and the
+database were OK with it. What's the Trick?
+
+We modified only one file, it's a POJO. It does not do much except
+define an entity to be used by our Spring Data Repository.
+
+First let's get the Couchbase part out of the way as it's the simplest
+one. Couchbase is a Document Store, it's schemaless. You don't have to
+do anything to support new data structure. More about the wonders of
+schemaless Can be found here.
+
+Now what about the front-end part? The form did show that a new field
+was added and it was already functional. How did the front-end became
+aware of the new field? It's not automatic. We cheated. It uses a very
+cool feature of Spring Data REST.
+
+We added à field to an object part of the Developer entity. The
+Developer Entity is managed through the Developer Repository. This
+Repository is exposed by a Rest API automatically generated by Spring.
+And one of the feature of this API is to give an endpoint for the Schema
+of the Entity. This Schema can be used to create a form on the front-end
+side. And this is exactly what we did. The developer form changes based
+on the Developer schema. We only implemented this for the Social part
+but it could be generalized easily. Here's the corresponding Angular2
+code:
+
+....
+  public getDevSchema() {
+      var requestHeaders = new Headers();
+      requestHeaders.append("Accept", "application/schema+json");
+      this.utility.makeGetRequest("/profile/developer", [], null,requestHeaders).then(result => {
+        this.devSchema = result;
+      }, error => {
+        console.error(error);
+      });
+    }
+....
+
+Above code is a GET request on the developer endpoint with an Accept header set to "application/schema+json". This way
+the Spring backend now we expect a JSON Schema. The result is exposed by the devSchema object of the controller. The
+ following html code levrages the schema to dynamicaly display the social fields:
+....
+
+<div *ngIf="devSchema.definitions && developer.developerInfo" class="row" style="padding-top: 30px">
+    <div class="col-md-4" *ngFor="let sm of devSchema.definitions.socialMedia.properties | keys">
+       <strong class="info-title">{{sm.key}}</strong>: <br />
+       <div *ngIf="isEditing == false">{{ developer.developerInfo.socialMedia[sm.key] | unknown }}</div>
+       <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.socialMedia[sm.key]" [ngModelOptions]="{standalone: true}" /></div>
+    </div>
+</div>
+....
+
+Again this could be generalize and you could even send your own schema with additional informations like
+predefined values to populate lists.
+So nothing magic here. Just a symbiosis between Couchbase, Spring Data
+and Angular2.
+
+
+[[gittalent-integration-tests-with-testcontainers]]
+GitTalent Integration Tests with TestContainers
+-----------------------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+I have already blogged a lot on TestContainers in the past. It's a great
+solution to setup tests that work similarly on every platform. This is
+the setup used for GitTalent integration tests. Here's how we did it.
+
+[[build-gittalent-docker-images]]
+Build GitTalent docker images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first thing required to use TestContainers is to have a Docker image
+for what we want to test. In a previous post I explained what we did for
+GitTalent frontend. Couchbase Docker images are already available. Do
+the remaining question is how to create a Docker image for GitTalent
+backend. As it's a Java application built with Maven, there are
+different options available to make this easy and automated. Different
+maven plugin exists and the one I have chose is the one build by
+https://github.com/spotify/docker-maven-plugin[Spotify].
+
+It allow you to use your own Dockerfile and support variables for the
+name of your build. Among the options of the plugin, you can see a
+relative path to the Dockerfile that will be used, some arguments for
+the docker build like the final name of the jar, the name of the image
+that will be built. You can see here that we use `env.revId`. This is an
+external parameter as it's actually an environment variable. So for this
+build to work, you need this variable to be set. It's the current git
+commit identifier. You can get it with the following command:
+`git rev-parse HEAD`.
+
+....
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.4.11</version>
+                <configuration>
+                    <imageName>gittalent/backend:${env.revId}</imageName>
+                <dockerDirectory>src/main/docker</dockerDirectory>
+                <buildArgs>
+                    <finalName>${project.build.finalName}.jar</finalName>
+                </buildArgs>
+                <resources>
+                    <resource>
+                        <targetPath>/</targetPath>
+                        <directory>${project.build.directory}</directory>
+                        <include>${project.build.finalName}.jar</include>
+                    </resource>
+                </resources>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <executable>true</executable>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+....
+
+You will also notice that we use the Spring Boot plugin and set the
+executable option to true. It means you'll be able to use the built Jar
+as a service. So once you have setup everything, run something like
+`mvn clean package docker:build`. This will build your Spring Boot
+application and the specified Docker image. Said Docker image is simple,
+here's the Dockerfile:
+
+....
+FROM openjdk:8u102-jre
+ARG finalName
+ADD $finalName /gittalent.jar
+ADD .github /root/
+VOLUME /tmp
+ENTRYPOINT ["java","-jar","/gittalent.jar"]
+....
+
+What it does is just add the buit Jar, add the credential file for the
+Github API used for the import and mount the temporary folder. And
+that's it. Now we have Docker images for GitTalent Backend, Frontend and
+Couchbase. So now we have to wire everything up with TestContainers.
+
+[[setup-the-integration-test]]
+Setup the Integration Test
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+First let's talk about the variables. The first two are easy to
+understand as they are username and password for Couchbase. The third
+one is different. It the tag used for the GitTalent docker images. It's
+initialized in the first static block. If there is an envrionment
+variable called revId, than it will be used as tag for the GitTalent
+docker images. If not 'latest' will be used.
+
+Then you see a declaration for the Couchbase container followed by a
+static block. This static block is just here to start the Couchbase
+Container. The advantage with static bock is that they are executed in
+the declaration order, one after the other. Which is great when one
+depends on the other. Traditionaly with TestContainers you would be
+using JUnit rule to start those Docker containers. But the problem is
+they would all start at the same time. Which is not good when again they
+depends on each other. THe running order must be Couchbase first, than
+the backend which require a Couchbase connection, than the frontend that
+requires a backend connection, than the Selemium container used for
+integration tests that requires a connection to both the frontend and
+the backend.
+
+So first Couchbase, with every services enabled, no sample buckets and a
+default bucket. You can configure everything using the fluent API. Here
+we are not using a default GenericContainer provided by TestContainers
+because we have some specificities. The first and most important one
+being that a Couchbase container that has started is not ready. You need
+to configure it first. So what's happening under the hood is that we
+first start the container, wait for it to be ready, than configure it
+through all the options given in the fluent API, then wait again to make
+sure the configuration has been properly applied. I encourage you to
+read the previous blog posts mentioned above to get a full understanding
+of how the CouchbaseContainer works.
+
+After the Couchbase Container, we can start the backend with an almost
+regular GenricContainer. We are using a LinkedContainer, same thing but
+with the possibility to Link to another container. Another reason why
+you need to wait for the linked container to be started already. As it's
+a Java app we expose the 8080 port and wait got the server to return a
+200 response to be considered started.
+
+Than the next one is the frontent. Only thing to do here is to link it
+to the backend and expose the port 80.
+
+At that point you have Couchbase, GitTalent Backend and GitTalent
+Frontend running and linked together. So if you start another container
+that gives you a web browser with Selenium and link it to both the
+frontend and the backend, you can run integration tests on GitTalent.
+Fortunately the TestContainers project gives us a
+BrowserWebDriverContainer that allows all that. It's linked to both
+containers, will startup a Chrome web browser and even record a video of
+your test! Here's the full code of the class:
+
+....
+@RunWith(SpringRunner.class)
+public class GitTalentIntegrationTest {
+
+    public static final String clusterUser = "Administrator";
+    public static final String clusterPassword = "password";
+    public static final String revId;
+
+    static {
+        if (System.getenv("revId") != null) {
+            revId = System.getenv("revId");
+        } else {
+            revId = "latest";
+        }
+    }
+
+    public static CouchbaseContainer  couchbaseContainer = new CouchbaseContainer()
+            .withFTS(true)
+            .withIndex(true)
+            .withQuery(true)
+            .withClusterUsername(clusterUser)
+            .withClusterPassword(clusterPassword)
+            .withNewBucket(DefaultBucketSettings.builder().enableFlush(true).name("default").quota(100).replicas(0).type(BucketType.COUCHBASE).build());
+
+    static {
+        couchbaseContainer.start();
+    }
+
+    public static GenericContainer gittalentBackend = new LinkedContainer("gittalent/backend:"+revId).withLinkToContainer(couchbaseContainer, "couchbase").withExposedPorts(8080).waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(200));
+
+    static {
+        gittalentBackend.start();
+    }
+
+    public static GenericContainer gittalentFrontend = new LinkedContainer("gittalent/frontend:"+revId).withLinkToContainer(gittalentBackend, "gittalentBackend").withExposedPorts(80);
+
+    static {
+        gittalentFrontend.start();
+    }
+    @ClassRule
+    public static BrowserWebDriverContainer chrome = new BrowserWebDriverContainer()
+            .withLinkToContainer(gittalentFrontend, "gittalentfrontend")
+            .withLinkToContainer(gittalentBackend, "gittalentbackend")
+            .withDesiredCapabilities(DesiredCapabilities.chrome())
+            .withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.RECORD_ALL, new File("target"));
+
+
+    @Test
+    public void testDeveloperTab() throws InterruptedException {
+        RemoteWebDriver driver = chrome.getWebDriver();
+        driver.get("http://gittalentbackend:8080/githubimport/developer/ldoguin");
+        driver.get("http://gittalentbackend:8080/githubimport/status");
+            while(driver.getPageSource().contains("false")) {
+                Thread.sleep(1000);
+                driver.navigate().refresh();
+            };
+        driver.get("http://gittalentfrontend/");
+
+        WebElement navbar = (new WebDriverWait(driver, 10))
+                .until(ExpectedConditions.presenceOfElementLocated(By.id("navbar")));
+            WebElement myDynamicElement = (new WebDriverWait(driver, 10))
+                    .until(ExpectedConditions.presenceOfElementLocated(By.xpath("/html/body/app-root/div/developers/div[1]/div[2]/div[1]/table/tbody/tr/td[2]")));
+        Assert.assertNotNull(navbar);
+        Assert.assertTrue(myDynamicElement.getText().equals("ldoguin"));
+    }
+}
+....
+
+The Selenium test here is just an example. It starts by running a Github
+import and poll until the import is finished. Than loads the frontend
+and wait for some specific elements to be on the page. Angular 2 app are
+not the most straight forward thing to test as there is a lot of things
+happening asynchronously. But now you should have a fairly good
+understanding of how to test a Couchbase based application.
+
+
+[[the-5-ways-gittalent-queries-couchbase]]
+The 5 Ways GitTalent Queries Couchbase
+--------------------------------------
+
+This post is part of a series about GitTalent, an application driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+A question we ask ourselves as application developers is what to we need
+to do with our data? And these answers will translate into something very
+practical, what code do we have to write to implement those answers. And you need to
+ask yourself these questions soon enought because everything will
+depends on the stack you will choose. So what to we need to do in
+GitTalent?
+
+We need a CRUD API to Create, Read, Update or Delete objects. Something
+even better would be to have an API that allow us to modify only some
+parts of the document, instead of resending the whole thing. For all of
+these operations you only need the id of the object. And as such
+operates on only one object. If we want to start listing objects based
+on some of their characteristics, we need a query language. If we want
+to search anything in these objects, which is something most users are
+used to, we also need fulltext indexing. And finally if we want to get
+some meaning out of all our data, we need a way to run relatively
+complex aggregation query.
+
+All these assertions describes what you can do with GitTalent. So we
+need to find the right tech stack, which in our case is obviously
+Couchbase as it supports all these various needs. Of course there are
+other solutions, but usually they require different pieces to
+achieve the same results. And that where Couchbase is so handy. So let's
+see how to do each of these things one by one.
+
+[[back-to-basics]]
+Back to Basics
+^^^^^^^^^^^^^^
+
+Couchbase is first a K/V store. It means you can store any objects as
+long as you give them a key. We store k/v pairs in what we call a
+Bucket. It's like a Schema in SQL server for instance. Usually you have
+a set of tables grouped under a Schema. In couchbase we have k/v pairs
+groupped in Buckets. Which means that so far, in a k/v store, there is
+no particular schema, no table or column to define what you are storing.
+The granularity level has changed. If you store a commercial order, you
+know will have several tables to represent it. In a k/v store you only
+have values accessible with their ids. So you can have only one object
+ro represent it.
+
+A k/v store becomes a Document database from the moment you can query
+objects based on the value part. Querying requires an index. An index is
+another representation of the data stored in a way that will facilitate
+and speed up the query. So when you hear about multi model databases
+thAt stores data differently, think about it this way. You have one way
+to store the data (k/v for Couchbase) and several ways to index them.
+This results in several ways to query them. This can also be called
+polyglot databases.
+
+All of the following chapters will outline one particular way of storing
+or indexing data, usually for a dedicated purpose.
+
+
+[[prerequesite-acquire-a-couchbase-connection]]
+PreRequesite: Acquire a Couchbase Connection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first thing to do to when working with a database is to acquire
+a connection to that database. With Couchbase and the Java SDK, this
+can be achieve using the CouchbaseCluster object:
+
+....
+    CouchbaseCluster cluster = CouchbaseCluster.create(Arrays.asList("host1","host2");
+    Bucket bucket = cluster.openBucket("gittalent");
+
+....
+
+You can provide the hostname of several nodes of your cluster to
+initiate the connection. Once you have a CouchbaseCluster object
+you can oen a connection to a Bucket by giving its name and in
+some cases the password that protected it. In this example we are
+opening a connection to the 'gittalent' bucket available in a
+cluster that contains a node on hosts "host1" and "host2". This
+cluster might have more nodes, we just requires some seeds to start
+a connection. Then the client will get what we call the cluster map
+which hold every information about the topology of the cluster.
+
+
+[[crud-operations]]
+CRUD Operations
+~~~~~~~~~~~~~~~
+
+CRUD is an acronym that regroups four different operations: Create,
+Read, Update, Delete. Now that we have a connection to a Bucket we can
+look at the various method available on that connection. Here's a short
+list for CRUD: get, insert, upsert, replace, remove. Take a look at the
+followng exemple and comment to understand these method differences:
+
+....
+        // Create a document and insert it in the database
+        JsonObject jsonObject = JsonObject.create();
+        jsonObject.put("fieldName","value");
+        JsonDocument document = JsonDocument.create("documentKey", jsonObject);
+        document = bucket.insert(document);
+        // If a document with the same ID already exist on the server, this
+        // will throw an error, use upsert to update or insert the document
+        // if it already exist or not
+        bucket.upsert(document);
+        // replace will throw an error if the document does not exist
+        bucket.replace(document);
+        // remove deletes the document from the server
+        bucket.remove(document);
+        // get returns the document
+        bucket.get("documentKey");
+....
+
+This is a short overview of what you can do for CRUD operations on
+whole document. While this is useful when creating or deleting a doc
+you might want more granularity in some cases. Maybe you only want to
+ modify part of the document. This is where the SubDocument API comes in.
+
+
+
+[[subdocument-access]]
+SubDocument Access
+~~~~~~~~~~~~~~~~~~
+
+The SubDocument API allow you to send a document mutation to the server.
+You just need the key of the document to use it. You can send several
+types of mutation by using the 'mutateIn' method.
+
+....
+        Map newFields = new HashMap<String, Object>();
+        bucket.mutateIn("documentKey")
+                .upsert("aNewField", JsonObject.from(newFields),true)
+                .execute();
+....
+
+The example above will create a new field called "aNewField" with the given
+object as value. There are other types of mutation available. You can remove or replaceparts of
+the document, append, prepend or add a unique element to an array... You'll find
+the complete list in our documentation.
+
+Subdocument API allow you to modify a document without having to send
+its entire content back to the server. This is particularly handy in some cases
+where you only have the Id of the documents and some of its fields because you
+did a N1QL query returning only the fields you wanted.
+
+All the operations we have seen so far only use the k/v part of Couchbase and
+as such only apply to particular documents. What about the queries?
+
+
+[[adhoc-query]]
+AdHoc Query
+~~~~~~~~~~~
+
+AdHoc querying is the ability to run any query without having to create its
+indexes in the first place. To that end Couchbase created N1QL. It's SQL for
+JSON. The first mandatory step to use N1QL is to create the PRIMARY index.
+Once you have it you can run any N1QL query you want. This can be achieved
+in several ways, With our Java SDK it would look like this:
+
+
+....
+        Statement primaryIndexQuery = Index.createPrimaryIndex().on(bucket.name());
+        bucket.query(primaryIndexQuery);
+....
+
+Once you have the primary index, you can run a N1QL query. There are
+several ways to do so. The most basic one is to provide the query String
+directly:
+
+....
+        N1qlQuery query = N1qlQuery.simple("SELECT * FROM default");
+        bucket.query(query);
+....
+
+There are more advanced usage like using parameters:
+....
+       JsonArray params = JsonArray.create();
+        params.add(developerId);
+        N1qlQuery developerWithContacts = N1qlQuery.parameterized("SELECT customer.*,
+         (SELECT contact.* FROM `" + bucket.name()
+          + "` AS contact USE KEYS customer.contacts) AS contacts,
+           (SELECT ticket.* FROM `" + bucket.name() + "` AS ticket
+            USE KEYS customer.history) AS history
+             FROM `" + bucket.name() + "` AS customer
+             WHERE customer.type = 'developer' AND customer.id = $1", params);
+        bucket.query(developerWithContacts);
+....
+
+This query retrieves a Developer profile and all it's associated tickets stored
+in other documents. You can run an EXPLAIN of this query and figure out which
+secondary indexes you need to create to speed up that query.
+
+There are other type of index you can create that correpsond to other use cases
+like fulltext querying.
+
+
+[[fulltext-query]]
+Fulltext Query
+~~~~~~~~~~~~~~
+
+Couchbase FTS allow you to run fuzzy search, supports facets, scoring and results
+ highlighting among other things. This is possible because it uses a special kind of index
+ called https://en.wikipedia.org/wiki/Inverted_index[inverted index].
+ These indexes can be created from our web UI or from a REST API. I invite you to
+ read the https://developer.couchbase.com/documentation/server/current/fts/full-text-intro.html[following documentation]
+ for more information on FTS features. If you are using the Java SDK, there are
+ similarities with N1QL queries. You start by creating a SearchQuery with the
+ terms you are looking for and the index you want to query. Then you can specify
+ query options like the fields you want to be returned or highlighted, the
+ maximum number of results, the offset, etc...
+
+....
+        QueryStringQuery queryString = SearchQuery.queryString("some words");
+        SearchQuery query = new SearchQuery("all", queryString);
+        query.fields("type", "id", "repositories.mainLanguage", "repositories.fullName", "repositories.repoName", "developerInfo.email");
+        query.addFacet("Main Language", SearchFacet.term("repositories.mainLanguage", 10));
+        query.highlight(HighlightStyle.HTML, "repositories.mainLanguage", "repositories.fullName", "repositories.repoName");
+        query.limit(form.getPageSize());
+        query.skip(form.getPageSize() * form.getPage());
+        bucket.query(query);
+....
+
+So far we have been using k/v, SQL like indexes and inverted indexes. There is more.
+What if you want to run complex aggregation in real time? N1QL is in memory and real-time
+for most queries. But you mught have higher response time for queries accessive massive
+amounts of documents or when they are not supporte by a seconday index. This is often
+the case when using a visualization tool for instance. Couchbase Analytics is here
+to save the day.
+
+[[analytics-query]]
+Analytics Query
+~~~~~~~~~~~~~~~
+
+[, From our documentation]
+""
+Couchbase Analytics is designed to support truly ad hoc queries in a reasonable amount of time,
+ even when scans are required. Because Analytics supports efficient parallel query processing
+ and bulk data handling, Couchbase Analytics is still preferred for expensive queries,
+ even when those queries are predetermined and might therefore be supported by an index.
+""
+
+Analytics is in Developer Preview, take a look at the https://developer.couchbase.com/documentation/server/4.5/analytics/primer-beer.html#[full documentation].
+You can download it from https://www.couchbase.com/nosql-databases/downloads#[Couchbase download page]
+under the extensions tab. It's a separate executable for now but will be integrated to
+Couchbase Server in the future.
+
+As of now, it is now integrated to the Java SDK. But it's not a problem since it's
+accessible from its REST API on port 8095. Here's an example:
+
+....
+    private String excuteCBASQuery() throws Exception {
+        String query = "SELECT l.name,  COUNT(1) as numberOfRepo, SUM(l.`value`) as totalBytes FROM developers developer unnest repositories as repo UNNEST object_pairs(repo.languages) as l GROUP BY l.name ORDER BY totalBytes DESC LIMIT 10;";
+        URL url = new URL(getCbasURL());
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setDoInput(true);
+        connection.setDoOutput(true);
+        connection.setRequestMethod("POST");
+
+        connection.setRequestProperty("Content-Type",
+                "application/x-www-form-urlencoded");
+        connection.setRequestProperty("ignore-401",
+                "true");
+
+        String encodedQuery = URLEncoder.encode(query, "UTF-8");
+        String payload = "statement=" + encodedQuery;
+
+        DataOutputStream out = new DataOutputStream(connection.getOutputStream());
+        out.writeBytes(payload);
+        out.flush();
+        out.close();
+
+        int responseCode = connection.getResponseCode();
+
+        BufferedReader in = new BufferedReader(
+                new InputStreamReader(connection.getInputStream()));
+        String inputLine;
+        StringBuffer response = new StringBuffer();
+        while ((inputLine = in.readLine()) != null) {
+            response.append(inputLine);
+        }
+        in.close();
+
+        return response.toString();
+    }
+....
+
+This will of course return a JSON answer, much faster than N1QL would have based
+on the different Indexes created for Analytics and its query engine.
+
+And with that you have seen the 5 ways to query Couchbase used in GItTalent.
+
+[[gittalent-search-features]]
+GitTalent Search Features
+-------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+In the many things we wanted to showcase in the GitTalent demo, one of
+them was FTS. It brings fulltext search to Couchbase. This has been
+brought up several times on this blog already. If you don't know what
+fullltext is you can read those posts. To sum up very quickly, think of
+google search. You enter some words and you get some search results in
+oder of pertinence. If you make one or two typo in the word, the search
+engine is smart enough to give you approaching result. And yes you can
+do something similar with Couchbase, here's how.
+
+[[how-to-run-fulltext-searh-queries-with-the-java-sdk]]
+How to run fulltext searh queries with the Java SDK
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A Fulltext Query can be created just like any other Couchbase queries
+from a static class. In this case it's the SearchQuery class. It's
+expecting search terms. The documentation for the supported synthax is
+available on
+http://www.blevesearch.com/docs/Query-String-Query/[Bleve]'s website and
+there is a very good reason for that. Bleve is the search engine used by
+FTS. It is developed by Couchbase but can also be used in other Go
+project. It's community is qutie active and already received significant
+contributions. Once you have your query, you need to choose on which
+index you want to run it. Here I am using the `all` indwx. From that
+query you can start defining options that will impact the result. The
+result is a JSON document, which means no schema which means great
+flexibility. +
+The first option configured is the fields returned by the query. By
+default it will only return the id of the document. You can use it to
+specify additional fields you need in the query result. The second
+option is defining a facet. Here it will be facets for the field called
+type with a maximum of 4 results. Which is the number of type of
+documents available in GitTalent. The third option will return to you
+snippet of text with the search termed highlighted. This is quite
+usefull especially for bigger String field. Than we setup more classical
+options like the number of maximum results and the offset.
+
+You will also notice that we are using a rawQueryExecutor. It's
+different from the traditional method as it returns the JSON string
+directly. The answer is not wrapped in traditional results. Upside is
+it's straight JSON, great when working with Javascript application.
+Downside is you might miss valuable metadata about your query. In our
+case we just need the result so it's fine.
+
+....
+       public String executeRawQuerySearch(SearchForm form) {
+        QueryStringQuery fts = SearchQuery.queryString(form.getQueryString());
+        SearchQuery query = new SearchQuery("all", fts);
+        query.fields("type", "id", "assignedId", "developerInfo.lastName", "developerInfo.email", "developerInfo.username", "developerInfo.firstName");
+        query.addFacet("type", SearchFacet.term("type", 4));
+        query.highlight(HighlightStyle.HTML, "title", "repositories.mainLanguage", "repositories.fullName", "repositories.repoName");
+        query.limit(form.getPageSize());
+        query.skip(form.getPageSize() * form.getPage());
+        return rawQueryExecutor.ftsToRawJson(query);
+    }
+....
+
+For all thoses options to work appropriately, you need to create the
+right index.
+
+[[index-creation]]
+Index Creation
+~~~~~~~~~~~~~~
+
+There are two ways to create FTS index. You can do it from the UI or you
+can use the REST API. The most important thing to do in creating the
+query index is to make sure the fields previously configured are stored
+in the Index. It's an option, easy to spot on the UI. Here's the JSON
+string you need to POST to create that index:
+
+....
+{
+    "type": "fulltext-index",
+    "name": "all",
+    "sourceType": "couchbase",
+    "sourceName": "default",
+    "params": {
+      "mapping": {
+        "byte_array_converter": "json",
+        "default_analyzer": "standard",
+        "default_datetime_parser": "dateTimeOptional",
+        "default_field": "_all",
+        "default_mapping": {
+          "display_order": "0",
+          "dynamic": true,
+          "enabled": true,
+          "properties": {
+            "assignedId": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "3",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "assignedId",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "closedAt": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "1",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "closedAt",
+                  "store": true,
+                  "type": "number"
+                }
+              ]
+            },
+            "developerInfo": {
+              "display_order": "0",
+              "dynamic": false,
+              "enabled": true,
+              "properties": {
+                "email": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "1",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "email",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                },
+                "firstName": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "2",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "firstName",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                },
+                "lastName": {
+                  "dynamic": false,
+                  "enabled": true,
+                  "fields": [
+                    {
+                      "analyzer": "",
+                      "display_order": "0",
+                      "include_in_all": true,
+                      "include_term_vectors": true,
+                      "index": true,
+                      "name": "lastName",
+                      "store": true,
+                      "type": "text"
+                    }
+                  ]
+                }
+              }
+            },
+            "id": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "4",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "id",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "status": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "2",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "status",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "title": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "0",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "title",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "type": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "analyzer": "",
+                  "display_order": "5",
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "type",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            }
+          }
+        },
+        "default_type": "_default",
+        "index_dynamic": true,
+        "store_dynamic": false,
+        "type_field": "type"
+      },
+      "store": {
+        "kvStoreName": "forestdb"
+      }
+    }
+}
+....
+
+To create FullText Index, use the UI or run the follwing command
+assuming the JSON above is in a file called indexFts.json, that a
+Couchbase node with FTS enabled is running on localhost and that the
+user is Administrator and the password asdasd:
+
+....
+curl -H "Content-Type: application/json" -X PUT -d @indexFts.json --user Administrator:asdasd  http://localhost:8094/api/index/all
+....
+
+With that we have a working fulltext query. Next step is to integrate it
+with the webapp.
+
+[[the-gittalent-search-controller]]
+The GitTalent search controller
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+GitTalent frontend is an Angular2 application and as such uses REST
+endpoint to fetch data. So we are going to add a controller to the
+backend for that purpose. A Controller in Spring is defined by adding
+the @Controller annoation on the class. You can inject beans in that
+class, which is why the constructor as a Bucket and a RawQueryExecutor
+as parameter. Once you have a controller you can add @RequestMapping to
+any method. If you specify a "/fultext/" as path and POST as method on
+the @RequestMapping annotation, every POST request to the server made on
+http://serverURL/fultext/ will execute the annotated method.
+
+If you take a look at thye searchTicket method, it's executed for each
+POST request on "fulltext/ticket". You will notice we have the class
+TickerSearchForm as @RequestBody as parameter. This means that for each
+request, the body of the request will be mapped to the TicketSearchForm
+class automatically by Spring. This class is a POJO representing the
+different search parameters for the search.
+
+....
+@Controller
+public class FTSSearchController {
+
+    private Bucket bucket;
+    private RawQueryExecutor rawQueryExecutor;
+
+    public FTSSearchController(final Bucket bucket, final RawQueryExecutor rawQueryExecutor) {
+        this.bucket = bucket;
+        this.rawQueryExecutor = rawQueryExecutor;
+    }
+
+    @ResponseBody
+    @RequestMapping(method = RequestMethod.POST, path = "/fulltext/ticket")
+    public String searchTicket(@RequestBody TicketSearchForm form) {
+        QueryStringQuery queryString = SearchQuery.queryString(form.getQueryString());
+        SearchQuery query = new SearchQuery("all", queryString);
+        query.fields("type", "id", "assignedId", "title", "createdAt", "status");
+        query.addFacet("status", SearchFacet.term("status", 3));
+        Calendar now = Calendar.getInstance();
+        now.add(Calendar.MONTH, -1);
+        double monthOld = now.getTimeInMillis();
+        now.add(Calendar.MONTH, -2);
+        double threeMonthOld = now.getTimeInMillis();
+        now.add(Calendar.MONTH, -3);
+        double sixMonthOld = now.getTimeInMillis();
+        now.add(Calendar.MONTH, -6);
+        double yearOld = now.getTimeInMillis();
+        now.add(Calendar.YEAR, -20);
+        double tooOld = now.getTimeInMillis();
+        query.addFacet("createdAt", SearchFacet.numeric("createdAt", 5)
+                .addRange("1 month old", monthOld, (double) Calendar.getInstance().getTimeInMillis())
+                .addRange("1 to 3 month old", threeMonthOld, monthOld)
+                .addRange("3 to 6 month old", sixMonthOld, threeMonthOld)
+                .addRange("6 to 12 month old", yearOld, sixMonthOld)
+                .addRange("more than a year", tooOld, yearOld));
+        query.highlight(HighlightStyle.HTML, "title");
+        query.limit(form.getPageSize());
+        query.skip(form.getPageSize() * form.getPage());
+        return rawQueryExecutor.ftsToRawJson(query);
+    }
+....
+
+The complete code is available on the Github Repository. You can see in
+details the different search available in GitTalent as well as the
+different POJOs backing up each search.
+
+And with this you should know how to propose fulltext search from your
+Couchbase backend application.
+
+
+[[couchbase-and-githubarchive-import]]
+Couchbase and GithubArchive import
+----------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+Part of our mission for GitTalent was to test our new analtics solution
+with a healthy amount of data. While the Github API is very useful to
+browse existing developers, organizations and code repositories, it's
+still king of a manual process. Gathering a certain amount of data can
+be a little cumbersome and slow. Fortunately for us there is a great
+website called http://githubarchive.org/[GithubArchive]. It allow you to
+gather all public events available on Github since 2011. That's plenty
+of data :) This post will explain how to import all that data into
+Couchbase.
+
+[[where-is-that-data-anyway]]
+Where is that Data Anyway?
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+One thing you want to do before importing data somewhere is figure out
+where it is, how to get it and how does it look like? So head to the
+GithubArchive and start reading. You can download every Github events
+per hour. From the website:
+
+`Activity for 1/1/2017 @ 3PM UTC`
+`wget http://data.githubarchive.org/2017-01-01-15.json.gz`
+
+This will get you a gzipped file that you can uncompress with
+`gunzip 2017-01-01-15.json.gz` which gives you `2017-01-01-15.json`.
+Let's see what's inside this file with `head -1 2017-01-01-15.json`:
+
+....
+{"id":"5089347908","type":"PushEvent","actor":{"id":10555786,"login":"wangguansong","display_login":"wangguansong","gravatar_id":"","url":"https://api.github.com/users/wangguansong","avatar_url":"https://avatars.githubusercontent.com/u/10555786?"},"repo":{"id":69135458,"name":"wangguansong/wangguansong.github.io","url":"https://api.github.com/repos/wangguansong/wangguansong.github.io"},"payload":{"push_id":1479647009,"size":1,"distinct_size":1,"ref":"refs/heads/master","head":"a7f1ded2a9c2c3f98f134c7199ab060f5320f76c","before":"190831414d93f5435579f3f44b42848ca67752e3","commits":[{"sha":"a7f1ded2a9c2c3f98f134c7199ab060f5320f76c","author":{"name":"Guansong Wang","email":"ef70153f7a515df27ebc2d15d8762c791e1e0b67@hotmail.com"},"message":"[en|zh] Update 2007, 2008, 2009 photos.","distinct":true,"url":"https://api.github.com/repos/wangguansong/wangguansong.github.io/commits/a7f1ded2a9c2c3f98f134c7199ab060f5320f76c"}]},"public":true,"created_at":"2017-01-01T15:00:00Z"}
+....
+
+Seems like there is one JSON document per line. To determine the number
+of line/documents: `wc -l 2017-01-01-15.json` `24639 2017-01-01-15.json`
+Now you know that there are 24639 JSON documents that likely all have an
+id and type field. That's enough to start importing documents in
+Couchbase.
+
+[[importing-to-couchbase]]
+Importing to Couchbase
+~~~~~~~~~~~~~~~~~~~~~~
+
+Something I like to do for import is to use a scripting language. No
+compilation needed so it's super easy to adapt to any sources. So for
+this one I decided to use Groovy as it's the natural script option when
+you already use Java. There is support for RxJava used in our SDK
+through the RxGroovy project. No need for a separate file for
+dependencies, you can use Grab at the top of your script:
+
+....
+@GrabResolver(name = "OJO", root = "https://oss.jfrog.org/artifactory/repo")
+@Grab("com.couchbase.client:java-client:2.3.3")
+@Grab("org.assertj:assertj-core:2.5.0")
+@Grab("io.reactivex:rxgroovy:1.0.3")
+@GrabConfig(systemClassLoader = true)
+....
+
+This configuration will make sure you have the Couchbase SDK and
+RxGroovy. Now something to do is make sure you can read a JSON gzipped
+file line by line. This is what the following code does. It returns a
+Stream of String which can be easily changed into an Observable.
+
+....
+
+    public static Stream<String> lines(Path path) {
+        InputStream fileIs = null;
+        BufferedInputStream bufferedIs = null;
+        GZIPInputStream gzipIs = null;
+        try {
+            fileIs = Files.newInputStream(path);
+            // Even though GZIPInputStream has a buffer it reads individual bytes
+            // when processing the header, better add a buffer in-between
+            bufferedIs = new BufferedInputStream(fileIs, 65535);
+            gzipIs = new GZIPInputStream(bufferedIs);
+        } catch (IOException e) {
+            closeSafely(gzipIs);
+            closeSafely(bufferedIs);
+            closeSafely(fileIs);
+            throw new UncheckedIOException(e);
+        }
+        BufferedReader reader = new BufferedReader(new InputStreamReader(gzipIs));
+        return reader.lines().onClose({ closeSafely(reader) });
+    }
+
+    private static void closeSafely(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException e) {
+                // Ignore
+            }
+        }
+}
+....
+
+Something else we have to do is make sure we can read from files and
+write JSON to Couchbase Bucket. This needs very little setup. First
+instantiate a
+http://docs.groovy-lang.org/latest/html/gapi/groovy/json/JsonSlurper.html[JsonSlurper].
+JSON slurper parses text or reader content into a data structure of
+lists and maps and this is ecatly what you need when manipulating JSON.
+Then you need a connection to a Cluster and a pointer to the json.gz
+file. For some reason I had to create a new Iterable from the stream
+Iterator to make sure it could be converted into an Observable.
+
+....
+  public static void main(String[] args) {
+
+        def jsonSlurper = new JsonSlurper()
+        def cluster = CouchbaseCluster.create(args[1])
+        def asyncBucket = cluster.openBucket(args[2]).async()
+        File f = new File(args[0])
+
+        Stream<String> stream = lines(f.toPath())
+
+        Iterable iterable = new Iterable() {
+            @Override
+            Iterator iterator() {
+                return stream.iterator()
+            }
+        }
+....
+
+Now that we have an Observable of String, each of them representing a
+JSON document, and a connection to a Bucket, we can start the import.
+The first flatMap function will transform the JSON string into a
+http://docs.couchbase.com/sdk-api/couchbase-java-client-2.4.0/com/couchbase/client/java/document/RawJsonDocument.html[RawJsonDocument].
+In our case since we alreaady have an encoded JSON string, using a
+RawJsonDocument will avoid unnecessary marshalling work. The second
+flatMap is more interesting. It does the upsert and then uses a
+http://docs.couchbase.com/sdk-api/couchbase-java-client-2.1.4/com/couchbase/client/java/util/retry/RetryBuilder.html[RetryBuilder].
+It allow you to define retry strategy when for particular Exception.
+
+....
+        Observable.from(iterable)
+          .flatMap({
+            String s ->
+                def json = jsonSlurper.parseText(s)
+                Observable.just(RawJsonDocument.create(json.id, s))
+            } as Func1<String, Observable<RawJsonDocument>>
+        ).flatMap({
+            RawJsonDocument jsonDoc ->
+                asyncBucket.upsert(jsonDoc)
+                        .retryWhen(
+                        RetryBuilder
+                                .anyOf(RequestCancelledException.class)
+                                .delay(fixed(500,
+                                TimeUnit.MILLISECONDS))
+                                .max(50).build())
+                        .retryWhen(
+                        RetryBuilder
+                                .anyOf(TemporaryFailureException.class,
+                                BackpressureException.class)
+                                .delay(fixed(500,
+                                TimeUnit.MILLISECONDS))
+                                .max(50).build())
+                        .onErrorResumeNext({ t -> Observable.empty() } as Func1<Throwable, Observable>)
+        } as Func1<RawJsonDocument, Observable<JsonDocument>>).toBlocking().last()
+}
+....
+
+The complete script can be found
+https://gist.github.com/ldoguin/5e5f3bbc6878fc7c00391642ae45bc7c[here].
+Make sure you have a JVM in yourt PATH as well as Groovy to make sure
+you can use it. Here's an example:
+
+groovy script.groovy file.json.gz localhost default
+
+This command will import the file called file.json.gz in the default
+bucket of a cluster available on localhost.
+
+With that you now know how to import data from the GithubArchive or from
+JSON files more generally.
+
+
+[[gittalent-and-couchbase-analytics]]
+Gittalent and Couchbase Analytics
+---------------------------------
+
+This post is part of a series about GitTalent, an applicatino driven for
+the sole purpose of giving Couchbase Connect's attendee an awesome
+keynote demo. To list all the GitTalent post, please use the GitTalent
+Tag.
+
+During the keynote you have seen some wild aggregation queries ran on a
+250millions document database and answering in real-time. This was
+possible because we used CBAS, our new analytics service. CBAS has been
+designed specifically to run massively parallelized queries. It uses the
+SQL++ language. It is slightly different than N1QL but both will be identical
+in the future.
+
+[[setup-cbas]]
+Setup CBAS
+~~~~~~~~~~
+
+Analytics is in Developer Preview, take a look at the https://developer.couchbase.com/documentation/server/4.5/analytics/primer-beer.html#[full documentation].
+You can download it from https://www.couchbase.com/nosql-databases/downloads#[Couchbase download page]
+under the extensions tab. It's a separate executable for now but will be integrated to
+Couchbase Server in the future.
+
+To start it, simply extract the archive you have downloaded and run:
+
+`./samples/local/bin/start-sample-cluster.sh`\
+
+This will start a Couchbase Analytics node on your machine. If everything
+went well, you can access the UI with your browser by going to `http://localhost:8095/`
+
+And you should see something like this:
+
+image:analyticsWorkbench.png[]
+
+So now you need to tell Couchbase Analytics where are your data. If you want to query data
+on the gittalent bucket hosted on localhost you need to execute the following queries:
+....
+create bucket gitTalent with { "bucket": "gittalent", "nodes": "127.0.0.1" };
+create shadow dataset developer on gitTalent;
+connect bucket gitTalent with { "password": "" };
+
+create bucket dev with { "bucket": "default", "nodes": "127.0.0.1" };
+create shadow dataset developers on dev;
+connect bucket dev with { "password": "" };
+....
+
+This will make sure all mutations happening on the gittalent and default bucket are forwarded to
+the Couchbase Analytics indexes.
+
+
+[[select-the-most-used-languages-across-all-public-github-project]]
+Select the most used languages across all public github project
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All developers profile stored in GitTalent are stored with the list of
+their public repositories. Would you like to know what is the most used
+languages out of all these repositories?
+
+First we need to look at the current datastructure. Here is an example of the
+repositories field:
+
+....
+repositories": [
+				{
+					"createdAt": 1441826090000,
+					"size": 569,
+					"languages": {
+						"Java": 128261,
+						"Shell": 164,
+						"Go": 299,
+						"Python": 371
+					},
+					"repoName": "algorithm",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/algorithm",
+					"description": "Learning Algorithm with LeetCode & HackerRank",
+					"mainLanguage": "Java",
+					"updatedAt": 1484505371000
+				},
+				{
+					"createdAt": 1477998333000,
+					"size": 1875,
+					"languages": {
+						"Java": 53346
+					},
+					"repoName": "algorithm-princeton",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/algorithm-princeton",
+					"description": "Coursera - Introduction to Algorithms",
+					"mainLanguage": "Java",
+					"updatedAt": 1478465061000
+				},
+				{
+					"createdAt": 1446655080000,
+					"size": 936,
+					"languages": {
+						"Java": 109845
+					},
+					"repoName": "esig-android",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/esig-android",
+					"description": "Course ESIGELEC - Android Developpement",
+					"mainLanguage": "Java",
+					"updatedAt": 1472320496000
+				},
+				{
+					"createdAt": 1428010483000,
+					"size": 2188,
+					"languages": {
+						"C#": 36777
+					},
+					"repoName": "esig-csharp",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/esig-csharp",
+					"description": "Course ESIGELEC - C# programming.",
+					"mainLanguage": "C#",
+					"updatedAt": 1472320205000
+				},
+				{
+					"createdAt": 1424105673000,
+					"size": 232,
+					"languages": {
+						"Java": 24469
+					},
+					"repoName": "esig-java",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/esig-java",
+					"description": "Course ESIGELEC : Advanced Java, part 1.",
+					"mainLanguage": "Java",
+					"updatedAt": 1472246324000
+				},
+				{
+					"createdAt": 1425482260000,
+					"size": 4312,
+					"languages": {
+						"Java": 6105271,
+						"CSS": 1230522,
+						"JavaScript": 2812,
+						"HTML": 511626,
+						"XSLT": 5266
+					},
+					"repoName": "esig-javaee-farm",
+					"subscriberCount": 0,
+					"fullName": "mincong-h\/esig-javaee-farm",
+					"description": "Course ESIGELEC - Advanced Java, part 2.",
+					"mainLanguage": "Java",
+					"updatedAt": 1472319955000
+				}
+			]
+....
+
+ As you can see this is an array of objects. The field languages in these
+ objects is also an array of object with the name of the language as name
+ of the field and the number of bytes written in that language as value.
+ It's interesting because it means we can't predict what will be in those
+ objects. It's like having a column in SQL that you would not know its name.
+ We are talking really Schemaless here. But we can get our way through thiss
+ Here is the query to get the 10 most popular languages:
+
+....
+SELECT l.name,  COUNT(1) AS numberOfRepo, SUM(l.`value`) AS totalBytes
+  FROM developers developer UNNEST repositories AS repo
+   UNNEST OBJECT_PAIRS(repo.languages) AS l
+   GROUP BY l.name ORDER BY totalBytes DESC LIMIT 10;
+
+results": [ {
+			"numberOfRepo": 403,
+			"name": "C",
+			"totalBytes": 1012683307
+		}, {
+			"numberOfRepo": 745,
+			"name": "Java",
+			"totalBytes": 783514423
+		}, {
+			"numberOfRepo": 290,
+			"name": "C++",
+			"totalBytes": 362514970
+		}, {
+			"numberOfRepo": 808,
+			"name": "JavaScript",
+			"totalBytes": 351660189
+		}, {
+			"numberOfRepo": 55,
+			"name": "Erlang",
+			"totalBytes": 250080237
+		}, {
+			"numberOfRepo": 447,
+			"name": "HTML",
+			"totalBytes": 173274702
+		}, {
+			"numberOfRepo": 458,
+			"name": "Python",
+			"totalBytes": 137949798
+		}, {
+			"numberOfRepo": 346,
+			"name": "Go",
+			"totalBytes": 114832686
+		}, {
+			"numberOfRepo": 104,
+			"name": "PHP",
+			"totalBytes": 101042411
+		}, {
+			"numberOfRepo": 487,
+			"name": "CSS",
+			"totalBytes": 68472061
+		} ]
+....
+
+There are two very important keywords here. First UNNEST that takes an array and flatten it.
+Then OBJECT_PAIRS that will transform an object with unkown fields into something useable.
+
+Here is an example:
+
+....
+SELECT OBJECT_PAIRS({
+						"Java": 128261,
+						"Shell": 164,
+						"Go": 299,
+						"Python": 371
+					})
+
+					[
+                      {
+                        "$1": [
+                          {
+                            "name": "Go",
+                            "value": 299
+                          },
+                          {
+                            "name": "Java",
+                            "value": 128261
+                          },
+                          {
+                            "name": "Python",
+                            "value": 371
+                          },
+                          {
+                            "name": "Shell",
+                            "value": 164
+                          }
+                        ]
+                      }
+                    ]
+....
+
+This is how we can group by language name withouth knowing the content of the fields.
+This query also work with N1QL. Interesting fact. If you have a small amount of data
+it will be faster with in-memory N!QL indexes than using Couchbase Analytics.
+
+Couchbase Analytics really thrives when querying massive amount of data.
+
+
+[[cicd-pipeline]]
+CI/CD pipeline
+--------------
+
+During the keynote, you can see Perry answering Ravi's demand by adding
+à new field in the application. À part from the fact that it requires a
+very minimal amount of code, when he pushed that code to the server the
+whole project was automatically built, tested, packaged and deployed to
+production. This is called Continuous Integration(CI) and Continuous
+Deployment(CD). In the digital economy era if you want to keep up with
+change you need CI and CD. To give you some numbers Github deploys to
+production several times a day, Facebook does it pretty much
+continuously. This post will explain how to setup a simple CI/CD
+pipeline for GitTalent using Jenkins.
+
+[[install-jenkins]]
+Install Jenkins
+~~~~~~~~~~~~~~~
+
+Jenkins is an automation server. It's one if not the most common CI/CD
+server available. It is already installed on many companies and as such
+is the one we will use today. You will find several alternatives like
+Travis, Bamboo or Circles CI.
+
+First download and install Jenkins. For a quick test I had to do the following.
+
+I have downloaded the war, I created a jenkins folder in my home
+directory and from there ran `java -jar Jenkins.war  --httpPort=9090`.
+It's not the right way to install it for production but is enough for this post.
+I am using the port 9090 mostly because I often have something running
+on port 8080.
+
+Now go to localhost:9090 and follow the tutorial with all the default option and
+created an admin user.
+
+image:UnlockJenkins.png[]
+
+image:instllation.png[]
+
+image:InstallSuggestedPluginsJenkins.png[]
+
+image:firstUser.png[]
+
+[[setup-build-jobs]]
+Setup Build Jobs
+~~~~~~~~~~~~~~~~
+
+We are now ready to setup our different jobs. We will make sure that the
+jobs are started automatically each time there is à new commit pushed to Github.
+The CI job will build Docker images. Then if everything went well
+and the CI is sucessful, we will move to the CD part.
+
+[[front-end-build]]
+Front-end Build
+^^^^^^^^^^^^^^^
+
+This is an Angular2 app and as such requires nodejs to be built. You need
+to have it installed on your CI nodes. If you have Docker you can get away
+with it by using a container that runs npm for you. So first make sure you
+have either npm and angular-cli or Docker installed. Docker is mandatory
+for the next step anyway.
+
+When you create a new Jenkins job you have several choices. The more
+generic thing to do here is to choose a freestyle job. We are not
+going to use any particular plugins. We'll stick to the default
+so you understand everything that is needed. No usage of magical
+plugins that do all the work for you. You should probably use
+them but in our case it's simpler and easier to understand what
+is going on without any plugins.
+
+image:createJob.png[]
+
+For the configuration there are two important steps. The first one is to
+tell Jenkins where is your source code. Under Source Code Management
+select Git and paste the URL of the github repository:
+
+image:frontendConf1.png[]
+
+The second step is to tell Jenkins what to do once this code has been
+checked out. In my case I don't have npm insgalled so I'll be using
+Docker to run npm:
+
+image:frontendConf2.png[]
+
+This is the version with Docker:
+....
+export revId=$(git rev-parse HEAD)
+echo $revId
+docker run --rm -t -v $(pwd)/gittalent-frontend:/project -u $(id -u):$(id -g)  --entrypoint npm metal3d/ng install
+docker run --rm -t -v $(pwd)/gittalent-frontend:/project -u $(id -u):$(id -g) metal3d/ng build --environment=test
+docker build -t gittalent/frontend:$revId gittalent-frontend
+....
+And the version using npm annd angular-cli directly:
+....
+export revId=$(git rev-parse HEAD)
+echo $revId
+npm install
+ng build --environment=test
+docker build -t gittalent/frontend:$revId gittalent-frontend
+....
+
+The first two commands are here to assign the current commit ID to an
+environment variable and echo it in the logs. This variable will be
+used as tag for the Docker Image built at the end of this job.
+
+Than the following two commands are here to installed the node
+modules needed for the app and to build the app with the test
+environment. This environment is configured to use a particular
+backend URL. The one that the backend will have during the
+integration tests.
+
+Than the last command builds a docker image for the frontend. The
+Dockerfile is very simple:
+....
+FROM nginx
+COPY dist/ /usr/share/nginx/html
+....
+
+It uses the default nginx image and copy the result of the build
+in the image. It will be served with the default configuration and
+so accessible on port 80.
+
+Now to test this build you need to click on the Build Now button.
+This is a manual process, let's see how to automate this.
+
+
+[[setup-a-github-webhook]]
+Setup a Github Webhook
+^^^^^^^^^^^^^^^^^^^^^^
+
+A GitHub Webhook will trigger a build automatically when a commit
+is pushed to a particular repository. To setup a Github integration
+go to the settings of your repository and go to Integrations and
+services. Add a Jenkins Service:
+
+image:webHookGithub.png[]
+
+Configure the Jenkins Service by setting the URL of your Jenkins
+Server.
+
+image:webHook2.png[]
+
+Yes this means that your server needs to be publicly accessible
+for Github to send a request to the endpoint you just specified.
+
+Now go back to the setup of the Gittalent Frontend job. Under the
+Build Triggers section, tick the GitHub hook trigger option and save
+your changes. From now on, every commit pushed to the github repository
+will trigger a build of this job.
+
+image:webhook3.png[]
+
+Now let's see how to build the backend.
+
+[[backend-build]]
+Backend Build
+^^^^^^^^^^^^^
+
+The backend is a Spring Boot application using Maven as build tool.
+So you need to make sure that Maven is installed on your Jenkins
+instances. We are going to use the same project than before and
+change the build steo.
+
+First we create a particular configuration file needed
+during the docker build. This file is used by the data importer
+of the application. It connects to Github and retrieve application data.
+
+Than we build the project and its Docker image:
+
+image:backendBuild.png[]
+
+You need to add the following code:
+....
+cd gittalent-backend
+echo "login=yourLogin" > ./src/main/docker/.github
+echo "password=yourPassword" >> ./src/main/docker/.github
+mvn clean install docker:build
+....
+
+
+The Docker image is built thanks to the Spotify plugin:
+....
+
+			<plugin>
+				<groupId>com.spotify</groupId>
+				<artifactId>docker-maven-plugin</artifactId>
+				<version>0.4.11</version>
+				<configuration>
+					<imageName>gittalent/backend:${env.revId}</imageName>
+					<dockerDirectory>src/main/docker</dockerDirectory>
+					<buildArgs>
+						<finalName>${project.build.finalName}.jar</finalName>
+					</buildArgs>
+					<resources>
+						<resource>
+							<targetPath>/</targetPath>
+							<directory>${project.build.directory}</directory>
+							<include>${project.build.finalName}.jar</include>
+						</resource>
+					</resources>
+				</configuration>
+			</plugin>
+....
+
+Notice that we still use the current commit ID as tag for our
+Docker image thanks to the Maven property `${env.revId}`. Talking about
+Docker, here is the image used:
+....
+FROM openjdk:8u102-jre
+ARG finalName
+ADD $finalName /gittalent.jar
+ADD .github /root/
+VOLUME /tmp
+ENTRYPOINT ["java","-jar","/gittalent.jar"]
+....
+
+At the end of this build you have an image for the backend and the frontend.
+The next step is to test their interaction with integration tests.
+
+[[integration-test]]
+Integration Test
+^^^^^^^^^^^^^^^^
+
+We keep on modifying our job and adding a new step to run the integration tests.
+It's a maven project so all we have to do is make sure it's ran.
+
+image:testBuildStep.png[]
+
+....
+cd ../gittalent-integration-test
+mvn clean install
+....
+
+At that point each time you push a commit, a test build is created
+for the frontend and backend and is tested through a Selenium integration
+test. If everything is succesful, we can start building the production
+(or staging, pre-production etc... but let's keep the example simple)
+artifacts and archive them.
+
+
+[[build-production-package]]
+Build Production package
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Let's start by creating a new job starting from the previous one. Instead of
+triggering a build with a Github Push, this Job will be triggered when the
+previous GitTalent job has sucessfuly finished:
+
+image:CIBuildTrigger.png[]
+
+Now this is the time to change how you build the frontend and backend by
+making sure they are build with production settings. Here I am modifying
+the build environment for the frontend and the password and login for the
+backend. Of course you could modify or add more changes here.
+
+image:CIBuildArchive.png[]
+
+It's also the time to add a Post-Build action that will archive some files.
+Here I am archiving a zip of the frontend code and the backend JAR.
+
+image:archivedBuild.png[]
+
+At this point a minimal CI chain is completed. There are of course lots
+of other things you would do like setting up appropriate version numbers
+or possibly building artifacts for more environment than the production one.
+We will however assume that this is enough for this post.
+
+[[setup-automatic-deployment]]
+Setup Automatic Deployment
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+At this stage we have a CI pipeline. It builds, tests and packages
+everything. This is the Continuous Integration phase. It's great but not
+enough. Now we need to deploy this to our server. This is the Continuous
+Deployment phase.
+
+This step will require you to install a plugin. It's very simple to do. Click
+on Manage Jenkins than Manage Plugins. Here click on the  Available tab and search
+for SSH. The first plugin you should see coming up is Publish Over SSH. Go ahead,
+install it and restart Jenkins.
+
+At that point you need to configure the remote host to which you want to deploy
+the latest build. If you go into Manage Jenkins than Configure System, at the end
+of the page you sill wee the Publish Over SSH configuration.
+
+image:configureSSH.png[]
+
+Now create another Job that will be built automatically after
+the previous one. You can also leave the trigger option alone and trigger
+the build manually if you don't want every build to be pushed to production.
+
+Add a new step to execute or send a file over ssh. We are going to download the
+latest public build and put them in production. The necessary steps are as follow:
+....
+wget http://yourJenkinsServer:9090/job/GItTalent-production/lastSuccessfulBuild/artifact/gittalent-backend/target/gittalent-backend-0.0.1-SNAPSHOT.jar
+wget http://yourJenkinsServer:9090/job/GItTalent-production/lastSuccessfulBuild/artifact/gittalent-backend/target/gittalent-front.zip
+systemctl stop gittalent
+cp crm-couchbase-backend-0.0.1-SNAPSHOT.jar /var/opt/gittalent/gittalent.jar
+chown gittalent /var/opt/gittalent/gittalent.jar
+chgrp gittalent /var/opt/gittalent/gittalent.jar
+systemctl start gittalent
+rm -rf dist
+unzip ./gittalent-front.zip
+rm -rf /usr/share/nginx/html/*
+cp -r dist/* /usr/share/nginx/html/
+....
+
+Which should look like:
+image:continousDeploymentSetup.png[]
+
+And with that you have a job that takes the latest archived artifact for
+your backend and frontend and deploy them to a server. This is the
+Continuous Deployment part.
+
+Now of course most of these steps are very simple and necessarily realistic.
+But this should give you a good idea on what is necessary to achieve a
+CI/CD pipeline. It's also worth mentioning that a lot of this can
+be simplified by Jenkins plugins, that we could also publish resulting
+Docker images to a Docker repository and deploy them to production from
+this repository. There are as many solutions as there projects and developers.
+Just pick the one that fits best to your current setup.
+
+[[couchbase-monitoring]]
+Couchbase Monitoring
+--------------------
+
+[[gittalent-front-end]]
+GitTalent Front-end
+-------------------
