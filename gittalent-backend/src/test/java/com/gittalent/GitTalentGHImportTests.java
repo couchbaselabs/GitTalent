@@ -5,15 +5,21 @@ import com.couchbase.client.java.query.N1qlQuery;
 import com.couchbase.client.java.query.N1qlQueryResult;
 import com.couchbase.client.java.query.N1qlQueryRow;
 import com.gittalent.service.GithubImportService;
-import com.gittalent.testcontainers.AbstractSPDataTestConfig;
+import com.gittalent.testcontainers.CouchbaseTestConfig;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * Created by ldoguin on 12/26/16.
  */
-public class GitTalentGHImportTests extends AbstractSPDataTestConfig {
+
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = {GittalentBackendApplication.class, CouchbaseTestConfig.class})
+public class GitTalentGHImportTests {
 
     @Autowired
     private GithubImportService githubImportService;

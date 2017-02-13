@@ -274,13 +274,8 @@ public class CouchbaseContainer<SELF extends CouchbaseContainer<SELF>> extends G
         rest.body(payload);
 
         RestApiResponse response = rest.execute();
-        
-
     }
 
-    public void importData(String path) {
-
-    }
 
 }
 
