@@ -20,6 +20,10 @@ This application was developped specificaly for that demo and we will
 dissect it during this blog series. The first part of the serie is about
 the architechture of GitTalent,
 
+++++
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Bq8zkcbnRac" frameborder="0" allowfullscreen></iframe>
+++++
+
 [[gittalent]]
 GitTalent
 ~~~~~~~~~
