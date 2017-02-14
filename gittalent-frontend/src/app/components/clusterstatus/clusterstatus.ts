@@ -25,6 +25,7 @@ export class ClusterStatusComponent implements OnInit {
             .replace(".compute.amazonaws.com","");
     }
 
+    // tag::refreshStatus[]
     public refreshStatus() {
         this.isRequesting = true;
         this.utility.makeGetRequest("/pools/nodes", []).then(result => {
@@ -42,4 +43,5 @@ export class ClusterStatusComponent implements OnInit {
             console.error(error);
         });
     }
+    // end::refreshStatus[]
 }

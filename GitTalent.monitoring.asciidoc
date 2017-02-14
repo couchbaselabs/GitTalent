@@ -1,0 +1,76 @@
+During the demo, Perry briefly showed a status screen. The requirement was to show a very basic monitoring screen that would quickly convey any problems that a cluster is having on a node-by-node basis.
+
+The Couchbase Web Console contains a much more complete and feature-rich set of tools for monitoring and managing your clusters, but for the keynote we wanted to show something visually simple, and we wanted to show something that was integrated with the rest of the application.
+
+To fulfill this requirment, both a frontend and a backend were created. The backend would supply status information as an endpoint and the frontend would display the information in large, colorful blocks.
+
+image::book/status_screen1.png[Couchbase Cluster Status with 10 healthy nodes]
+
+Monitoring Backend
+~~~~~~~~~~~~~~~~~~
+
+There is a REST endpoint to get status directly from the Couchbase Cluster. The link:https://developer.couchbase.com/documentation/server/current/rest-api/rest-cluster-details.html[Viewing Cluster Details] endpoint is where I started. However, this endpoint cannot be used directly by JavaScript (because of CORS), and there is no way to turn off CORS.
+
+I originally created an endpoint that would act as a pass-through: it woould call this REST endpoint and return that response. The trouble with using this approach for a monitoring page is that it requires a URL to make the REST request. What if the node at that URL is down? Then I'd have to find another URL for a different node, and so on.
+
+Luckily, the Couchbase SDKs (including Java) already have this sort of management and communication with the cluster manager built in. So instead of making a REST request directly, I can use the Couchbase Java SDK to get the same information (using the `info()` method).
+
+[source,Java,indent=0]
+----
+include::gittalent-backend/src/main/java/com/gittalent/controller/IndexController.java[tag=getPoolsNodesREST]
+----
+
+Now I have an endpoint that can feed into the frontend.
+
+Monitoring Frontend
+~~~~~~~~~~~~~~~~~~
+
+The frontend for monitoring was built in Angular, just like the rest of the frontend.
+
+It's a very simple matter to go from a JSON endpoint to an Angular template.
+
+Within the Angular component, a `refreshStatus` method is called during `ngOnInit`, and it can also be called on-demand by a user using a refresh button.
+
+[source,HTML,indent=0]
+----
+include::gittalent-frontend/src/app/components/clusterstatus/clusterstatus.html[tag=refreshbutton]
+----
+
+The `refreshStatus` method makes an Ajax request to the endpoint I created. It also manages the "loading" graphic through a `isRequesting` property.
+
+[source,HTML,indent=0]
+----
+include::gittalent-frontend/src/app/components/clusterstatus/clusterstatus.ts[tag=refreshStatus]
+----
+
+The information about the nodes is stored in an array, and that array is used to generate the UI with an Angular template.
+
+[source,HTML,indent=0]
+----
+include::gittalent-frontend/src/app/components/clusterstatus/clusterstatus.html[tag=angulartemplate]
+----
+
+The `cleanHostName` is just to make the long AWS URLs look nice for the demo. The rest of the work is done by CSS styles. I created tile classes to correspond to the various statuses.
+
+[source,CSS,indent=0]
+----
+.tile.healthy {
+    color: #fff;
+    background-color: green;
+}
+.tile.unhealthy {
+    color: #fff;
+    background-color: red;
+}
+
+/* ... etc ... */
+----
+
+During the demo, we simulated what would happen if an entire data center region went down, and we had to failover to a different region. During the transition, in the demo, Perry clicks the "refresh" button and you briefly see the Cluster Status screen when bad things are happening.
+
+image::book/status_screen2.png[Couchbase Cluster Status when bad things are happening]
+
+Monitoring Summary
+~~~~~~~~~~~~~~~~~~
+
+Having a simple view of cluster status was key to the demo. You may want to build a dashboard like this to integrate into your own app, or for users that you don't want to have access to the full Couchbase Web Console. Thanks to the Couchbase SDKs, this is a simple matter of creating and endpoint and creating a UI to consume the endpoint.

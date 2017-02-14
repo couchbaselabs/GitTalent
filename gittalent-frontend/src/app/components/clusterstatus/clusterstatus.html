@@ -1,6 +1,9 @@
 <my-spinner [isRunning]="isRequesting"></my-spinner>
 <div *ngIf="!isRequesting" class="row">
+    <!-- tag::refreshbutton[] -->
     <h2>Cluster Status <button class="btn btn-info" (click)="refreshStatus()"><span class="glyphicon glyphicon-refresh" aria-hidden="true" title="Refresh"></span></button></h2>
+    <!-- end::refreshbutton[] -->
+    <!-- tag::angulartemplate[] -->
     <div class="row">
         <div class="col-sm-2" *ngFor="let n of nodes; let i = index">
             <div class="dummy"></div>
@@ -10,4 +13,5 @@
             </div>
         </div>
     </div>
+    <!-- end::angulartemplate[] -->
 </div>

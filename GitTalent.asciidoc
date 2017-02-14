@@ -2526,6 +2526,9 @@ Just pick the one that fits best to your current setup.
 Couchbase Monitoring
 --------------------
 
+include::GitTalent.monitoring.asciidoc[]
+
+
 [[gittalent-front-end]]
 GitTalent Front-end
 -------------------

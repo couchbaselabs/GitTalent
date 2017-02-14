@@ -241,10 +241,12 @@ public class IndexController {
         return rawQueryExecutor.n1qlToRawJson(developerWithContacts);
     }
 
+    // tag::getPoolsNodesREST[]
     @ResponseBody
     @RequestMapping("/pools/nodes")
     public String getPoolsNodesREST() throws Exception {
         return couchbaseCluster.clusterManager("Administrator", "password").info().raw().toString();
     }
+    // end::getPoolsNodesREST[]
 
 }
