@@ -9,7 +9,7 @@ v1.0, 2017-01-01
 Couchbase Connect Keynote 2016 - GitTalent
 ------------------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -92,7 +92,7 @@ and how. Next posts will details implementation.
 GitTalent Data Model
 --------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -332,7 +332,7 @@ cases.
 Testing Spring Data Couchabse with TestContainers
 -------------------------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -501,7 +501,7 @@ code is really minimal and correspond exactly to what you want to test.
 Gittalent Unit Test with Couchbase, Spring boot and TestContainers
 ------------------------------------------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -648,7 +648,7 @@ Data Couchbase projects.
 Building a FrontEnd for Gittalent
 ---------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -909,7 +909,7 @@ and Angular2.
 GitTalent Integration Tests with TestContainers
 -----------------------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -1424,7 +1424,7 @@ And with that you have seen the 5 ways to query Couchbase used in GItTalent.
 GitTalent Search Features
 -------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -1768,7 +1768,7 @@ Couchbase backend application.
 Couchbase and GithubArchive import
 ----------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
@@ -1950,7 +1950,7 @@ JSON files more generally.
 Gittalent and Couchbase Analytics
 ---------------------------------
 
-This post is part of a series about GitTalent, an applicatino driven for
+This post is part of a series about GitTalent, an application driven for
 the sole purpose of giving Couchbase Connect's attendee an awesome
 keynote demo. To list all the GitTalent post, please use the GitTalent
 Tag.
