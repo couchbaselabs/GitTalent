@@ -1,31 +1,36 @@
-# Angular
+# GitTalent Frontend
 
-This project was generated with [angular-cli](https://github.com/angular/angular-cli) version 1.0.0-beta.15.
+## Requirements
 
-## Development server
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+This project has a few requirements that must be satisfied before it can be run.
 
-## Code scaffolding
+* Node.js 4.0 or higher
+* Angular 2 CLI
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive/pipe/service/class`.
+Node.js is required because it comes with the Node Package Manager (NPM), a necessary tool for downloading Angular 2 packages.  With it the Angular 2 CLI can be installed.
 
-## Build
+## Testing the Angular 2 Front-End
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `-prod` flag for a production build.
+The front-end to this example was developed using Angular 2 through the use of the Angular CLI.  To test the front-end, navigate into the **angular** directory with a Command Prompt or Terminal and execute the following:
 
-## Running unit tests
+```sh
+npm install
+```
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+The above command will install all of the Angular 2 project dependencies.
 
-## Running end-to-end tests
+With the dependencies installed, one of two things can happen.  The project can be tested using the live-reload features of the Angular 2 CLI, or the project can be built.  To serve the application execute the following:
 
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/). 
-Before running the tests make sure you are serving the app via `ng serve`.
+```sh
+ng serve
+```
 
-## Deploying to Github Pages
+With the local server running, it can be accessed from **http://localhost:4200** in a web browser.  To build the project, execute:
 
-Run `ng github-pages:deploy` to deploy to Github Pages.
+```sh
+ng build --output-path=../public
+```
 
-## Further help
+## Resources
 
-To get more help on the `angular-cli` use `ng --help` or go check out the [Angular-CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+Couchbase - [http://www.couchbase.com](http://www.couchbase.com)
