@@ -5,6 +5,7 @@ v1.0, 2017-01-01
 :imagesdir: book
 :homepage: http://asciidoctor.org
 
+
 [[couchbase-connect-keynote-2016---gittalent]]
 Couchbase Connect Keynote 2016 - GitTalent
 ------------------------------------------
@@ -2469,15 +2470,171 @@ of other things you would do like setting up appropriate version numbers
 or possibly building artifacts for more environment than the production one.
 We will however assume that this is enough for this post.
 
-[[setup-automatic-deployment]]
-Setup Automatic Deployment
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+[[continuous-deployment]]
+Continuous Deployment
+~~~~~~~~~~~~~~~~~~~~~
 
 At this stage we have a CI pipeline. It builds, tests and packages
 everything. This is the Continuous Integration phase. It's great but not
 enough. Now we need to deploy this to our server. This is the Continuous
 Deployment phase.
 
+
+[[setup-remote-machine]]
+Setup Remote Machine
+^^^^^^^^^^^^^^^^^^^^^
+
+In the previous step you saw we archived a zip containing the website and
+a jar containing the backend. Our goal is to deploy all this to a remote
+machine in the cloud. So we need to make sure that this machine is ready.
+We will run on the same machine for the sake of the example an nginx server
+and a Spring Boot application. So first make sure you have Java and nginx
+installed.
+
+`yum install nginx java-1.8.0-openjdk`
+
+Once they are installed we need to configure them. First let's take a look
+at the nginx configuration. Go ahead and open the `/etc/nginx/nginx.conf` file
+and replace it with the following content:
+
+....
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    tcp_nodelay         on;
+    keepalive_timeout   65;
+    types_hash_max_size 2048;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
+    include /etc/nginx/conf.d/*.conf;
+
+    server {
+        listen       80 default_server;
+        listen       [::]:80 default_server;
+        server_name  _;
+        root         /usr/share/nginx/html;
+
+
+
+    ##
+    # Gzip Settings
+    ##
+    gzip on;
+    gzip_http_version 1.1;
+    gzip_disable      "MSIE [1-6]\.";
+    gzip_min_length   256;
+    gzip_vary         on;
+    gzip_proxied      expired no-cache no-store private auth;
+    gzip_types        application/hal+json text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_comp_level 9;
+
+   	 #Static File Caching. All static files with the following extension will be cached for 1 day
+    	location ~* .(jpg|jpeg|png|gif|ico|css|js|svg)$ {
+		expires 7d;
+		add_header Cache-Control public;
+    }
+
+   # Rewrite rule
+    location / {
+          try_files $uri$args $uri$args/ $uri/ /index.html =404;
+    }
+
+   }
+
+....
+
+Most of this configuration is default settings. The more interesting part
+starts from the GZIP settings. It's role is to make sure all the static
+resources will be send gzipped by nginx, resulting in better performances. Then
+we have the Cache headers that will tell the web browser to keep some files in
+its cache for seven days. Finally you have the rewrite rule to make sure nginx
+can work with a single page application using hashbang for navigation.
+
+Now that nginx is setup, let's talk about the Spring Boot application. First thing
+I do before creating a new service is create a user for that service: `adduser gittalent`
+
+Then comes the service creation. Create and edit the file `vim /ets/systemd/system/gittalent.service `
+and add the following content:
+
+....
+[Unit]
+Description=gittalent
+After=syslog.target
+
+[Service]
+User=gittalent
+ExecStart=/var/opt/gittalent/gittalent.jar
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
+....
+
+This is basically a Systemd service. You can see that the execution part is simple
+as it is just executing the jar file located here: /var/opt/gittalent/gittalent.jar
+This works because JAR created by our Spring Boot project are executable services
+thanks to the maven Spring Boot plugin we use.
+
+Now to enable that service you need to type `systemctl gittalent status`.
+For all of this to work you need to create the gittalent folder and add the right
+permissions:
+....
+mkdir /var/opt/gittalent
+chown gittalent /var/opt/gittalent
+chgrp gittalent /var/opt/gittalent
+....
+Now your application will require a particular configuration. By default the Spring
+app will pickup the application.properties file in its working directory. So create
+this file as user gittalent:
+....
+su - gittalent
+vim /var/opt/gittalent/application.properties
+....
+In this file we specify the Couchbase nodes addresses, the port used by the server, the URL
+of our nging server for CORS configuration, the level of consistency we are after, some
+compression settings to make the API result smaller, and anything else you might want
+to configure for the backend.
+....
+spring.couchbase.bootstrap-hosts=ec2-52-4-12-105.compute-1.amazonaws.com,ec2-52-1-86-211.compute-1.amazonaws.com,ec2-54-82-132-50.compute-1.amazonaws.com
+server.port=8080
+gittalent.cors.allowedOrigin=http://ec2-52-20-157-174.compute-1.amazonaws.com
+spring.data.couchbase.consistency=eventually_consistent
+server.compression.enabled=true
+server.compression.mime-types=application/json,application/hal+json,application/xml,text/html,text/xml,text/plain
+....
+
+As this application is using Github to import data, you also need to create `/home/gittalent/.github`
+to store credentials:
+....
+login=githubLogin
+password=githubPassword
+....
+
+Now that this machine is setup, we can move to the deployment phase.
+
+[[setup-automatic-deployment]]
+Setup Automatic Deployment
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 This step will require you to install a plugin. It's very simple to do. Click
 on Manage Jenkins than Manage Plugins. Here click on the  Available tab and search
 for SSH. The first plugin you should see coming up is Publish Over SSH. Go ahead,
