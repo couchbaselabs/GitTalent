@@ -119,11 +119,11 @@ public class GithubImportService {
         try {
             GHUser user = github.getUser(developerId);
             List tickets = new ArrayList();
-//            github.searchIssues().mentions(user).list()
-//                    .forEach(ticket -> {
-//                        tickets.add(createTicket(ticket));
-//                        log.debug(String.format("wrote ticket: %s", ticket));
-//                    });
+            github.searchIssues().mentions(user).list()
+                    .forEach(ticket -> {
+                        tickets.add(createTicket(ticket));
+                        log.debug(String.format("wrote ticket: %s", ticket));
+                    });
             createDeveloper(user, tickets);
         } catch (Exception e) {
             log.error(e);
