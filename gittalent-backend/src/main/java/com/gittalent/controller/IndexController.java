@@ -41,14 +41,16 @@ public class IndexController {
     private GithubImportService githubImportService;
     private Bucket bucket;
     private CouchbaseCluster couchbaseCluster;
+    private RawQueryExecutor rawQueryExecutor;
 
     private ExecutorService executor = Executors.newSingleThreadExecutor();
     private CompletableFuture future;
 
-    public IndexController(final GithubImportService githubImportService, final Bucket bucket, final CouchbaseCluster couchbaseCluster) {
+    public IndexController(final GithubImportService githubImportService, final Bucket bucket, final CouchbaseCluster couchbaseCluster, final RawQueryExecutor rawQueryExecutor) {
         this.githubImportService = githubImportService;
         this.bucket = bucket;
         this.couchbaseCluster = couchbaseCluster;
+        this.rawQueryExecutor = rawQueryExecutor;
     }
 
     @ResponseBody
@@ -126,7 +128,7 @@ public class IndexController {
 
     @ResponseBody
     @RequestMapping("/developer/fullcontact/{developerId}")
-    public String developer(final @PathVariable String developerId, RawQueryExecutor rawQueryExecutor) throws Exception {
+    public String developer(final @PathVariable String developerId) throws Exception {
         JsonArray params = JsonArray.create();
         params.add(developerId);
         N1qlQuery developerWithContacts = N1qlQuery.parameterized("SELECT customer.*, (SELECT contact.* FROM `" + bucket.name() + "` AS contact USE KEYS customer.contacts) AS contacts, (SELECT ticket.* FROM `" + bucket.name() + "` AS ticket USE KEYS customer.history) AS history FROM `" + bucket.name() + "` AS customer WHERE customer.type = 'developer' AND customer.id = $1", params);
@@ -184,7 +186,7 @@ public class IndexController {
 
     @ResponseBody
     @RequestMapping("/developer/contacts/{contactId}")
-    public String getDeveloperContact(final @PathVariable String contactId, RawQueryExecutor rawQueryExecutor) throws Exception {
+    public String getDeveloperContact(final @PathVariable String contactId) throws Exception {
         JsonArray params = JsonArray.create();
         params.add(contactId);
         N1qlQuery developerWithContacts = N1qlQuery.parameterized("SELECT " +
@@ -197,7 +199,7 @@ public class IndexController {
 
     @ResponseBody
     @RequestMapping("/developer/getByEmail")
-    public String getCustomerByEmail(final @RequestParam("email") String email, RawQueryExecutor rawQueryExecutor) throws Exception {
+    public String getCustomerByEmail(final @RequestParam("email") String email) throws Exception {
         JsonArray params = JsonArray.create();
         params.add(email);
         N1qlQuery developerByEmail = N1qlQuery.parameterized("SELECT customer.* " +
@@ -208,7 +210,7 @@ public class IndexController {
 
     @ResponseBody
     @RequestMapping("/developer/search")
-    public String searchDevelopers(final @RequestParam("firstname") String firstName, final @RequestParam("lastname") String lastName, RawQueryExecutor rawQueryExecutor) throws Exception {
+    public String searchDevelopers(final @RequestParam("firstname") String firstName, final @RequestParam("lastname") String lastName) throws Exception {
         String statement = "SELECT developer.* FROM `" + bucket.name() + "` AS developer WHERE developer.type = 'developer'";
         JsonObject params = JsonObject.create();
         if (!firstName.equals("")) {
@@ -234,7 +236,7 @@ public class IndexController {
 
     @ResponseBody
     @RequestMapping("/developer/tickets/{developerId}")
-    public String getTicket(final @PathVariable String developerId, RawQueryExecutor rawQueryExecutor) throws Exception {
+    public String getTicket(final @PathVariable String developerId) throws Exception {
         JsonArray params = JsonArray.create();
         params.add(developerId);
         N1qlQuery developerWithContacts = N1qlQuery.parameterized("SELECT (SELECT ticket.* FROM `" + bucket.name() + "` AS ticket USE KEYS customer.history) AS history FROM `" + bucket.name() + "` AS customer WHERE customer.type = 'developer' AND customer.id = $1", params);
