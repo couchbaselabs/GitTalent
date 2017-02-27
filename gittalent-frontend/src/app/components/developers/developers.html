@@ -42,11 +42,11 @@
                 <tbody>
                     <tr *ngFor="let c of developers; let i = index">
                         <td>{{i + 1}}</td>
-                        <td>{{c.developerInfo.username}}</td>
-                        <td>{{c.developerInfo.firstName}}</td>
-                        <td>{{c.developerInfo.lastName}}</td>
-                        <td>{{c.developerInfo.email}}</td>
-                        <td>{{c.developerInfo.phone | phone}}</td>
+                        <td>{{c.developerInfo?.username}}</td>
+                        <td>{{c.developerInfo?.firstName}}</td>
+                        <td>{{c.developerInfo?.lastName}}</td>
+                        <td>{{c.developerInfo?.email}}</td>
+                        <td>{{c.developerInfo?.phone | phone}}</td>
                         <td>
                             <div class="pull-right"><a [routerLink]="['/developer', c.id]">view</a></div>
                         </td>

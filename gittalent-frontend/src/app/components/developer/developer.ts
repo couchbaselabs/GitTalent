@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Location } from "@angular/common";
 import { ActivatedRoute, Router } from '@angular/router';
-import { IDeveloper, ITicket, IOrganization, IAddress } from '../../entityInterfaces';
+import { IDeveloper, IDeveloperInfo, ITicket, IOrganization, IAddress } from '../../entityInterfaces';
 import { Utility } from "../../utility";
 import { PhonePipe } from '../../pipes/phonenumber';
 import { UnknownPipe } from '../../pipes/unknown';
@@ -24,7 +24,8 @@ export class DeveloperComponent implements OnInit {
     public devSchema: any;
 
     public constructor(private route: ActivatedRoute, private location: Location, private utility: Utility) {
-        this.developer = <IDeveloper>{history: [], contacts: [], address: <IAddress>{}, developerInfo: {socialMedia:{}}};
+        this.developer = <IDeveloper>{history: [], contacts: [], address: <IAddress>{}, developerInfo: <IDeveloperInfo>{}};
+        this.developer.developerInfo.socialMedia = {};
         this.contacts = [];
         this.ticket = <ITicket>{};
         this.isEditing = false;

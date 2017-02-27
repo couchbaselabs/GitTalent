@@ -18,40 +18,40 @@
                         <img *ngIf="!developer.developerInfo.avatarURL" src="http://placehold.it/460x460" style="width: 100%" />
                     </div>
                     <div class="col-md-4">
-                        <h1>{{developer.developerInfo.username}}</h1>
+                        <h1>{{developer.developerInfo?.username}}</h1>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-4">
                         <strong>First Name:</strong> <br />
-                        <div *ngIf="isEditing == false">{{developer.developerInfo.firstName}}</div>
+                        <div *ngIf="isEditing == false">{{developer.developerInfo?.firstName}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.firstName" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                     <div class="col-md-4">
                         <strong>Last Name:</strong> <br />
-                        <div *ngIf="isEditing == false">{{developer.developerInfo.lastName}}</div>
+                        <div *ngIf="isEditing == false">{{developer.developerInfo?.lastName}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.lastName" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                     <div class="col-md-4">
                         <strong>Country</strong>: <br />
-                        <div *ngIf="isEditing == false">{{developer.address.country | unknown}}</div>
+                        <div *ngIf="isEditing == false">{{developer.address?.country | unknown}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.address.country" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                 </div>
                 <div class="row" style="padding-top: 30px">
                     <div class="col-md-4">
                         <strong>Repository Count</strong>: <br />
-                        <div *ngIf="isEditing == false">{{developer.developerInfo.repositoryCount}}</div>
+                        <div *ngIf="isEditing == false">{{developer.developerInfo?.repositoryCount}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.repositoryCount" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                     <div class="col-md-4">
                         <strong>Followers</strong>: <br />
-                        <div *ngIf="isEditing == false">{{developer.developerInfo.followers}}</div>
+                        <div *ngIf="isEditing == false">{{developer.developerInfo?.followers}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.followers" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                     <div class="col-md-4">
                         <strong>Following</strong>: <br />
-                        <div *ngIf="isEditing == false">{{developer.developerInfo.follows}}</div>
+                        <div *ngIf="isEditing == false">{{developer.developerInfo?.follows}}</div>
                         <div *ngIf="isEditing == true"><input type="text" [(ngModel)]="developer.developerInfo.follows" [ngModelOptions]="{standalone: true}" /></div>
                     </div>
                 </div>
@@ -144,7 +144,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">Add a Ticket to {{developer.developerInfo.firstName}} {{developer.developerInfo.lastName}}</h4>
+                <h4 class="modal-title">Add a Ticket to {{developer.developerInfo?.firstName}} {{developer.developerInfo?.lastName}}</h4>
             </div>
             <div class="modal-body">
                 <form class="form-horizontal">
@@ -182,7 +182,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">Ticket for {{developer.developerInfo.firstName}} {{developer.developerInfo.lastName}}</h4>
+                <h4 class="modal-title">Ticket for {{developer.developerInfo?.firstName}} {{developer.developerInfo?.lastName}}</h4>
             </div>
             <div class="modal-body">
                 <form class="form-horizontal">
