@@ -5,5 +5,5 @@
 
 export const environment = {
   production: false,
-  gittalentBackendURL:"http://localhost:8080"
+  gittalentBackendURL:"http://localhost:8000"
 };
