@@ -2,11 +2,16 @@ version: '2'
 
 services:
     couchbase-master:
-        image: couchbase:latest
+        image: gittalent-couchbase
         ports:
             - 8091:8091
             - 8092:8092
             - 8093:8093
+        environment:
+            - COUCHBASE_ADMINISTRATOR_USERNAME=Administrator
+            - COUCHBASE_ADMINISTRATOR_PASSWORD=password
+            - COUCHBASE_BUCKET=default
+            - COUCHBASE_BUCKET_PASSWORD=
 
     gittalent-backend:
         image: gittalent-backend
@@ -15,6 +20,8 @@ services:
         environment:
             - GITHUB_LOGIN=username
             - GITHUB_PASSWORD=password
+            - SPRING.COUCHBASE.BOOTSTRAP-HOSTS=couchbase-master
+            - SPRING.COUCHBASE.BUCKET.NAME=default
         restart: always
 
     gittalent-frontend:
