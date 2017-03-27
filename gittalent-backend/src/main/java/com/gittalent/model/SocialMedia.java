@@ -22,7 +22,7 @@ public class SocialMedia {
 
     private String twitter;
 
-    private String facebook;
+    //private String facebook;
 //
 // Add new requirements from Ravi below...
 //
@@ -32,9 +32,9 @@ public class SocialMedia {
     public SocialMedia() {
     }
 
-    public SocialMedia(String twitter, String facebook) {
+    public SocialMedia(String twitter) {
         this.twitter = twitter;
-        this.facebook = facebook;
+        //this.facebook = facebook;
     }
 
     public String getTwitter() {
@@ -45,13 +45,13 @@ public class SocialMedia {
         this.twitter = twitter.trim();
     }
 
-    public String getFacebook() {
+    /*public String getFacebook() {
         return facebook;
     }
 
     public void setFacebook(String facebook) {
         this.facebook = facebook.trim();
-    }
+    }*/
 
     @Override
     public boolean equals(Object o) {
@@ -61,7 +61,7 @@ public class SocialMedia {
         SocialMedia that = (SocialMedia) o;
 
         if (twitter != null ? !twitter.equals(that.twitter) : that.twitter != null) return false;
-        if (facebook != null ? !facebook.equals(that.facebook) : that.facebook != null) return false;
+        //if (facebook != null ? !facebook.equals(that.facebook) : that.facebook != null) return false;
 
         return true;
     }
@@ -69,7 +69,7 @@ public class SocialMedia {
     @Override
     public int hashCode() {
         int result = twitter != null ? twitter.hashCode() : 0;
-        result = 31 * result + (facebook != null ? facebook.hashCode() : 0);
+        //result = 31 * result + (facebook != null ? facebook.hashCode() : 0);
         return result;
     }
 }
