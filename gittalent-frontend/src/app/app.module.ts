@@ -3,7 +3,7 @@ import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpModule } from '@angular/http';
 import { RouterModule } from "@angular/router";
-import { PopoverModule } from "ng2-popover";
+import { PopoverModule } from "ngx-popover";
 import { ChartsModule } from 'ng2-charts/ng2-charts';
 import { InfiniteScrollModule } from 'angular2-infinite-scroll';
 import { appRoutes, appComponents } from "./app.routing";
